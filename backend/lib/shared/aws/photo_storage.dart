@@ -1,4 +1,5 @@
 import 'package:den_backend/config/env.dart';
+import 'package:den_backend/shared/security_utils.dart';
 
 class PresignedUpload {
   final String uploadUrl;
@@ -27,7 +28,7 @@ abstract class PhotoStorage {
 /// ============================================================================
 /// WHAT IT DOES: Returns fake/local placeholder URLs for S3 uploads.
 /// WHAT REAL AWS IMPLEMENTATION MUST DO: Use AWS S3 SDK (S3Client) to generate
-/// a 5-minute presigned PUT URL with key scoping: `users/{userId}/photos/{uuid}.jpg`.
+/// a 5-minute presigned PUT URL with key scoping: `users/{userId}/photos/{uuid}.{ext}`.
 /// SECURITY CONSTRAINT: Must NEVER be instantiated or executed in production.
 /// ============================================================================
 class LocalPhotoStorage implements PhotoStorage {
@@ -46,8 +47,26 @@ class LocalPhotoStorage implements PhotoStorage {
         'SECURITY CRITICAL: LocalPhotoStorage stub attempted execution in production path!',
       );
     }
-    final uuid = DateTime.now().millisecondsSinceEpoch.toString();
-    final objectKey = 'users/$userId/photos/$uuid.jpg';
+
+    final uuid = SecurityUtils.generateUuidV4();
+    final cleanType = contentType.trim().toLowerCase();
+
+    String ext;
+    switch (cleanType) {
+      case 'image/png':
+        ext = 'png';
+        break;
+      case 'image/webp':
+        ext = 'webp';
+        break;
+      case 'image/jpeg':
+      case 'image/jpg':
+      default:
+        ext = 'jpg';
+        break;
+    }
+
+    final objectKey = 'users/$userId/photos/$uuid.$ext';
     return PresignedUpload(
       uploadUrl: 'http://localhost:5000/api/uploads/stub-put/$uuid',
       objectKey: objectKey,

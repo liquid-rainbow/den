@@ -2,34 +2,11 @@ import 'dart:io';
 
 import 'package:den_backend/config/database.dart';
 import 'package:den_backend/config/env.dart';
-import 'package:postgres/postgres.dart';
 
 void main() async {
   Env.load();
 
-  print('1. Connecting to default database "postgres" to ensure "${Env.dbName}" exists...');
-  final initConn = await Connection.open(
-    Endpoint(
-      host: Env.dbHost,
-      port: Env.dbPort,
-      database: 'postgres',
-      username: Env.dbUser,
-      password: Env.dbPassword,
-    ),
-    settings: const ConnectionSettings(sslMode: SslMode.disable),
-  );
-
-  final dbCheck = await initConn.execute("SELECT 1 FROM pg_database WHERE datname = '${Env.dbName}'");
-  if (dbCheck.isEmpty) {
-    print('Creating database "${Env.dbName}"...');
-    await initConn.execute('CREATE DATABASE ${Env.dbName}');
-    print('Database "${Env.dbName}" created successfully!');
-  } else {
-    print('Database "${Env.dbName}" already exists.');
-  }
-  await initConn.close();
-
-  print('2. Connecting to "${Env.dbName}" database and running migrations...');
+  print('Connecting to PostgreSQL container "${Env.dbHost}:${Env.dbPort}/${Env.dbName}" as user "${Env.dbUser}"...');
   await Database.initialize();
   final pool = Database.pool;
 
@@ -41,8 +18,8 @@ void main() async {
     }
 
     final rawSql = await migrationFile.readAsString();
-    print('Executing 001_initial_schema.sql...');
-    
+    print('Executing 001_initial_schema.sql on container database...');
+
     // Remove SQL line comments
     final lines = rawSql.split('\n');
     final cleanedLines = lines.where((l) => !l.trimLeft().startsWith('--')).join('\n');
