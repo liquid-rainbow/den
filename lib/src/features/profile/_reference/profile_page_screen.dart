@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../core/widgets/mobile_device_shell.dart';
+import '../../../../src/core/widgets/mobile_device_shell.dart';
 
 class ProfilePageScreen extends StatelessWidget {
   const ProfilePageScreen({super.key});

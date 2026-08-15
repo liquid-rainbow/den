@@ -3,10 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/theme/app_theme.dart';
+import 'core/widgets/bottom_nav_bar.dart';
 import 'features/auth/presentation/screens/otp_verification_screen.dart';
 import 'features/auth/presentation/screens/phone_entry_screen.dart';
-import 'features/home/presentation/screens/home_screen.dart';
+import 'features/chat/presentation/screens/chat_list_screen.dart';
+import 'features/discovery/presentation/screens/home_screen.dart';
+import 'features/likes/presentation/screens/likes_screen.dart';
+import 'features/notifications/presentation/screens/notifications_screen.dart';
 import 'features/onboarding/presentation/screens/onboarding_flow_screen.dart';
+import 'features/profile/presentation/screens/public_profile_screen.dart';
+import 'features/profile/presentation/screens/settings_screen.dart';
+import 'features/profile/presentation/screens/user_profile_screen.dart';
 
 class AuthState {
   final bool isAuthenticated;
@@ -68,7 +75,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (!auth.isOnboardingComplete) {
         return state.matchedLocation == '/onboarding' ? null : '/onboarding';
       }
-      return '/home';
+      if (isAuthRoute || state.matchedLocation == '/onboarding') {
+        return '/home';
+      }
+      return null;
     },
     routes: [
       GoRoute(
@@ -83,9 +93,66 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/onboarding',
         builder: (context, state) => const OnboardingFlowScreen(),
       ),
-      GoRoute(
-        path: '/home',
-        builder: (context, state) => const HomeScreen(),
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) {
+          return MainBottomNavBar(navigationShell: navigationShell);
+        },
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/home',
+                builder: (context, state) => const HomeScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/likes',
+                builder: (context, state) => const LikesScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/notifications',
+                builder: (context, state) => const NotificationsScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/chats',
+                builder: (context, state) => const ChatListScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/profile',
+                builder: (context, state) => const UserProfileScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'settings',
+                    builder: (context, state) => const SettingsScreen(),
+                  ),
+                ],
+              ),
+              GoRoute(
+                path: '/settings',
+                builder: (context, state) => const SettingsScreen(),
+              ),
+              GoRoute(
+                path: '/public-profile',
+                builder: (context, state) => const PublicProfileScreen(),
+              ),
+            ],
+          ),
+        ],
       ),
     ],
   );
