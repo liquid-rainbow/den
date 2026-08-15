@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +8,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../../../app.dart';
 import '../../../../core/theme/den_colors.dart';
@@ -256,16 +258,22 @@ class OnboardingFormNotifier extends Notifier<OnboardingFormState> {
   }
 
   /// Step 8: Face verification interface call per docs/04-face-verification-approach.md.
-  /// INTENTIONAL BEHAVIOR:
-  /// The backend server does not exist in this phase. Calling _faceVerificationRepo.createLivenessSession
-  /// will throw an HTTP exception at runtime, which is expected and intentional. Do not add a mock fallback.
   Future<void> startFaceVerification(WidgetRef ref) async {
     state = state.copyWith(error: null);
     try {
-      // 1. Create liveness session ID (POST /api/onboarding/face-liveness/session)
+      // 1. Request camera permission
+      final cameraStatus = await Permission.camera.request();
+      if (cameraStatus.isDenied || cameraStatus.isPermanentlyDenied) {
+        state = state.copyWith(
+          error: 'Camera permission is required for face verification.',
+        );
+        return;
+      }
+
+      // 2. Lazy backend liveness session creation (POST /api/onboarding/face-liveness/session)
       final sessionId = await _faceVerificationRepo.createLivenessSession();
 
-      // 2. Verify face matching (POST /api/onboarding/verify-face)
+      // 3. Verify face matching (POST /api/onboarding/verify-face)
       final isLive = await _faceVerificationRepo.verifyFace(sessionId: sessionId);
       setFaceVerified(isLive);
       if (isLive) {
@@ -275,9 +283,17 @@ class OnboardingFormNotifier extends Notifier<OnboardingFormState> {
               isOnboardingComplete: true,
             );
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      // Technical error logged silently for developer debugging (no PII / biometric context)
+      developer.log(
+        'Face verification session error',
+        error: e,
+        stackTrace: stackTrace,
+      );
+
+      // Clean user-friendly message - strictly no raw exception strings or stack traces
       state = state.copyWith(
-        error: 'Face verification failed: Backend API unavailable (${e.toString()})',
+        error: 'Unable to connect right now. Please try again later.',
       );
     }
   }
