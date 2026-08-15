@@ -14,8 +14,8 @@ CREATE TABLE IF NOT EXISTS users (
     height_cm INTEGER CHECK (height_cm IS NULL OR (height_cm >= 120 AND height_cm <= 230)),
     location VARCHAR(120),
     instagram_username VARCHAR(30),
-    status VARCHAR(30) NOT NULL DEFAULT 'pending_verification' 
-        CHECK (status IN ('pending_onboarding', 'pending_verification', 'active', 'suspended', 'deactivated')),
+    status VARCHAR(30) NOT NULL DEFAULT 'pending_onboarding' 
+        CHECK (status IN ('pending_onboarding', 'active', 'suspended', 'deactivated')),
     is_verified BOOLEAN NOT NULL DEFAULT FALSE,
     role VARCHAR(30) NOT NULL DEFAULT 'user' 
         CHECK (role IN ('user', 'host', 'admin')),

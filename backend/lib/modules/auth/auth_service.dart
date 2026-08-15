@@ -102,7 +102,7 @@ class AuthService {
 
     // Explicit Find-or-Create user by phone_number
     final userSelect = await pool.execute(
-      r'SELECT id, phone_number, full_name, dob, gender, height_cm, location, instagram_username, status, is_verified, created_at FROM users WHERE phone_number = $1',
+      r'SELECT id, phone_number, full_name, dob, gender, height_cm, location, instagram_username, status, is_verified, created_at, username FROM users WHERE phone_number = $1',
       parameters: [cleanPhone],
     );
 
@@ -123,11 +123,13 @@ class AuthService {
         'status': row[8].toString(),
         'isVerified': row[9] as bool,
         'createdAt': (row[10] as DateTime).toIso8601String(),
+        'username': row[11].toString(),
       };
     } else {
-      // User does NOT exist -> INSERT new user with least-privilege defaults
+      // User does NOT exist -> INSERT new user with least-privilege defaults ('pending_onboarding')
+      // Note: username is omitted from column list so PostgreSQL sequence default fires automatically
       final userInsert = await pool.execute(
-        r"INSERT INTO users (phone_number, full_name, dob, gender, height_cm, location, instagram_username, status, is_verified, role) VALUES ($1, 'New RedFlag Member', '2000-01-01', 'Unspecified', 170, '', '', 'pending_verification', FALSE, 'user') RETURNING id, phone_number, full_name, dob, gender, height_cm, location, instagram_username, status, is_verified, created_at",
+        r"INSERT INTO users (phone_number, full_name, dob, gender, height_cm, location, instagram_username, status, is_verified, role) VALUES ($1, 'New RedFlag Member', '2000-01-01', 'Unspecified', 170, '', '', 'pending_onboarding', FALSE, 'user') RETURNING id, phone_number, full_name, dob, gender, height_cm, location, instagram_username, status, is_verified, created_at, username",
         parameters: [cleanPhone],
       );
       final row = userInsert.first;
@@ -143,6 +145,7 @@ class AuthService {
         'status': row[8].toString(),
         'isVerified': row[9] as bool,
         'createdAt': (row[10] as DateTime).toIso8601String(),
+        'username': row[11].toString(),
       };
     }
 
