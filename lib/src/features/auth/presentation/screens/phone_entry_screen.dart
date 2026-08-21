@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/widgets/den_buttons.dart';
+import '../../../../core/widgets/den_logo.dart';
 import '../../../../core/widgets/mobile_device_shell.dart';
 import '../controllers/auth_controller.dart';
 
@@ -232,11 +233,13 @@ class _PhoneEntryScreenState extends ConsumerState<PhoneEntryScreen> {
 
                   Column(
                     children: const [
+                      DenLogo(size: 68),
+                      SizedBox(height: 12),
                       Text(
                         'Den',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 48,
+                          fontSize: 44,
                           fontWeight: FontWeight.w900,
                           letterSpacing: -1.5,
                           color: Colors.white,
@@ -256,7 +259,7 @@ class _PhoneEntryScreenState extends ConsumerState<PhoneEntryScreen> {
                     ],
                   ),
 
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 32),
 
                   Container(
                     decoration: BoxDecoration(

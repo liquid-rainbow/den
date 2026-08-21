@@ -5,6 +5,8 @@ import 'package:den_backend/config/database.dart';
 import 'package:den_backend/config/env.dart';
 import 'package:den_backend/modules/auth/auth_controller.dart';
 import 'package:den_backend/modules/auth/auth_service.dart';
+import 'package:den_backend/modules/user/user_controller.dart';
+import 'package:den_backend/modules/user/user_service.dart';
 import 'package:den_backend/shared/aws/face_verification_service.dart';
 import 'package:den_backend/shared/aws/photo_storage.dart';
 import 'package:den_backend/shared/aws/sms_sender.dart';
@@ -26,6 +28,8 @@ void main() async {
   // Instantiate Modules
   final authService = AuthService(smsSender: smsSender);
   final authController = AuthController(authService: authService);
+  final userService = UserService();
+  final userController = UserController(userService: userService);
 
   final app = Router();
 
@@ -47,6 +51,7 @@ void main() async {
 
   // Mount Auth Router
   app.mount('/api/auth', authController.router.call);
+  app.mount('/api/users', userController.router.call);
 
   final handler = const Pipeline()
       .addMiddleware(logRequests())
