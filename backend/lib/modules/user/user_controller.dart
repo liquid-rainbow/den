@@ -55,8 +55,15 @@ class UserController {
           headers: {'content-type': 'application/json'},
         );
       } catch (e) {
-        return Response.badRequest(
-          body: jsonEncode({'success': false, 'message': e.toString()}),
+        if (e is FormatException) {
+          return Response.badRequest(
+            body: jsonEncode({'success': false, 'message': e.message}),
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        print('Error in /onboarding: $e');
+        return Response.internalServerError(
+          body: jsonEncode({'success': false, 'message': 'An internal error occurred during profile setup.'}),
           headers: {'content-type': 'application/json'},
         );
       }
@@ -78,8 +85,15 @@ class UserController {
           headers: {'content-type': 'application/json'},
         );
       } catch (e) {
-        return Response.badRequest(
-          body: jsonEncode({'success': false, 'message': e.toString()}),
+        if (e is FormatException) {
+          return Response.badRequest(
+            body: jsonEncode({'success': false, 'message': e.message}),
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        print('Error in /me (PATCH): $e');
+        return Response.internalServerError(
+          body: jsonEncode({'success': false, 'message': 'An internal error occurred while updating profile.'}),
           headers: {'content-type': 'application/json'},
         );
       }

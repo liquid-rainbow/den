@@ -1,232 +1,158 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/theme/den_colors.dart';
-import '../../../../core/widgets/den_logo.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFAF8FF),
+      backgroundColor: Colors.white,
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header with DEN Branding
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const DenLogo(
-                    size: 32,
-                    showBrandName: true,
-                  ),
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.search, color: Colors.black87),
-                        onPressed: () {},
-                        tooltip: 'Search Events',
+        child: CustomScrollView(
+          slivers: [
+            // Header
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: const [
+                        Text(
+                          'Delhi',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black,
+                          ),
+                        ),
+                        SizedBox(width: 4),
+                        Icon(Icons.keyboard_arrow_down, color: Colors.black, size: 20),
+                      ],
+                    ),
+                    TextButton.icon(
+                      onPressed: () {},
+                      icon: const Icon(Icons.add, color: Colors.black87, size: 20),
+                      label: const Text(
+                        'Create',
+                        style: TextStyle(
+                          color: Colors.black87,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.tune_rounded, color: Colors.black87),
-                        onPressed: () => context.push('/home/filters'),
-                        tooltip: 'Filter Events',
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            
+            // Stories / People
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: 96,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  children: const [
+                    _StoryAvatar(name: 'Rohan', imageUrl: 'https://images.unsplash.com/photo-1522529599102-193c0d76b5b6?w=200&h=200&fit=crop'),
+                    SizedBox(width: 16),
+                    _StoryAvatar(name: 'Priya', imageUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&h=200&fit=crop'),
+                    SizedBox(width: 16),
+                    _StoryAvatar(name: 'Ananya', imageUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop'),
+                    SizedBox(width: 16),
+                    _StoryAvatar(name: 'Vikram', imageUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200&h=200&fit=crop'),
+                  ],
+                ),
+              ),
+            ),
+            
+            const SliverToBoxAdapter(child: SizedBox(height: 8)),
+
+            // Search Bar
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.search, color: Colors.grey.shade600, size: 20),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Search people, events or vibes...',
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 14,
+                        ),
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
             ),
+            
+            const SliverToBoxAdapter(child: SizedBox(height: 8)),
 
-            // Event Feed Content
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                children: [
-                  // Event Category Pills
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: const [
-                        _EventCategoryChip(label: '🎉 All Events', isSelected: true),
-                        SizedBox(width: 8),
-                        _EventCategoryChip(label: '☕ Coffee Dates'),
-                        SizedBox(width: 8),
-                        _EventCategoryChip(label: '🧗 Outdoor & Active'),
-                        SizedBox(width: 8),
-                        _EventCategoryChip(label: '🎨 Art & Music'),
-                        SizedBox(width: 8),
-                        _EventCategoryChip(label: '🍕 Food & Drink'),
-                      ],
-                    ),
-                  ),
+            // Filter Chips
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: 38,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  children: const [
+                    _FilterChip(label: 'All'),
+                    SizedBox(width: 8),
+                    _FilterChip(label: 'House Party'),
+                    SizedBox(width: 8),
+                    _FilterChip(label: 'Event'),
+                    SizedBox(width: 8),
+                    _FilterChip(label: 'Fitness'),
+                    SizedBox(width: 8),
+                    // Arrow button at end
+                    _ArrowButton(),
+                  ],
+                ),
+              ),
+            ),
+            
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
 
-                  const SizedBox(height: 18),
-
-                  // Featured Event Hero
-                  Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: const Color(0xFFEFEBF5)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.06),
-                          blurRadius: 16,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ClipRRect(
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                          child: Stack(
-                            children: [
-                              Image.network(
-                                'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=900&q=80',
-                                height: 170,
-                                width: double.infinity,
-                                fit: BoxFit.cover,
-                              ),
-                              Positioned(
-                                top: 12,
-                                left: 12,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withValues(alpha: 0.7),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: const Text(
-                                    '🔥 POPULAR THIS WEEKEND',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: const [
-                                  Text(
-                                    'Rooftop Acoustic Jam & Coffee',
-                                    style: TextStyle(
-                                      fontSize: 17,
-                                      fontWeight: FontWeight.w800,
-                                      color: Colors.black,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              Row(
-                                children: const [
-                                  Icon(Icons.calendar_today_outlined, size: 14, color: Color(0xFF6D6D6D)),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'Saturday, 5:00 PM • Skylight Lounge',
-                                    style: TextStyle(fontSize: 12, color: Color(0xFF6D6D6D), fontWeight: FontWeight.w500),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  const Text(
-                                    '14 verified members attending',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      color: DenColors.primary,
-                                    ),
-                                  ),
-                                  ElevatedButton(
-                                    onPressed: () {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('RSVP confirmed for Rooftop Acoustic Jam!')),
-                                      );
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: DenColors.primary,
-                                      foregroundColor: Colors.white,
-                                      shape: const StadiumBorder(),
-                                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-                                      visualDensity: VisualDensity.compact,
-                                    ),
-                                    child: const Text('RSVP', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Upcoming Events Section
-                  const Text(
-                    'Upcoming Community Events',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.black,
-                      letterSpacing: -0.4,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  const _EventCard(
-                    title: 'Weekend Sunset Bowling & Bites',
-                    location: 'Downtown Arena • 3.2 km away',
-                    time: 'Friday, 7:00 PM',
-                    attendees: '8 attending',
-                    imageUrl:
-                        'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=800&q=80',
-                  ),
-                  const SizedBox(height: 14),
-
-                  const _EventCard(
-                    title: 'Morning Pine Ridge Trail Hike',
-                    location: 'Pine Ridge Trailhead • 6.4 km away',
-                    time: 'Sunday, 7:30 AM',
-                    attendees: '12 attending',
-                    imageUrl:
-                        'https://images.unsplash.com/photo-1452626038306-9aae5e071dd3?auto=format&fit=crop&w=800&q=80',
-                  ),
-                  const SizedBox(height: 14),
-
-                  const _EventCard(
-                    title: 'Pottery Workshop & Tea Session',
-                    location: 'Studio Clay • 1.8 km away',
-                    time: 'Next Tuesday, 6:00 PM',
-                    attendees: '6 attending',
-                    imageUrl:
-                        'https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?auto=format&fit=crop&w=800&q=80',
+            // Events List
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  const _VerticalEventCard(
+                    title: 'Rooftop Neon House Party',
+                    dateStr: "12 Oct '24",
+                    timeStr: '9:00 PM',
+                    locationStr: 'Mission District',
+                    joinedCountText: '+42',
+                    statsText: '45 Joined • 15 Spots Left',
+                    imageUrl: 'https://images.unsplash.com/photo-1566737236500-c8ac43014a67?auto=format&fit=crop&w=1200&q=80',
                   ),
                   const SizedBox(height: 24),
-                ],
+                  const _VerticalEventCard(
+                    title: 'Underground Warehouse Rave',
+                    dateStr: "18 Oct '24",
+                    timeStr: '11:00 PM',
+                    locationStr: 'SOMA',
+                    joinedCountText: '+120',
+                    statsText: '122 Joined • 8 Spots Left',
+                    imageUrl: 'https://images.unsplash.com/photo-1540039155732-68ee23e15b51?auto=format&fit=crop&w=1200&q=80',
+                  ),
+                  const SizedBox(height: 24),
+                ]),
               ),
             ),
           ],
@@ -236,111 +162,247 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-class _EventCategoryChip extends StatelessWidget {
-  final String label;
-  final bool isSelected;
+class _StoryAvatar extends StatelessWidget {
+  final String name;
+  final String imageUrl;
 
-  const _EventCategoryChip({required this.label, this.isSelected = false});
+  const _StoryAvatar({required this.name, required this.imageUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: const Color(0xFFA133FF), width: 2),
+          ),
+          child: CircleAvatar(
+            radius: 28,
+            backgroundImage: NetworkImage(imageUrl),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          name,
+          style: const TextStyle(
+            fontSize: 11,
+            color: Colors.black87,
+            fontWeight: FontWeight.w400,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  final String label;
+
+  const _FilterChip({required this.label});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: isSelected ? DenColors.primary : Colors.white,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isSelected ? DenColors.primary : const Color(0xFFE5E2EC),
-        ),
+        border: Border.all(color: Colors.grey.shade300),
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: isSelected ? Colors.white : Colors.black87,
-          fontSize: 13,
-          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+      child: Center(
+        child: Text(
+          label,
+          style: TextStyle(
+            color: Colors.grey.shade800,
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
+          ),
         ),
       ),
     );
   }
 }
 
-class _EventCard extends StatelessWidget {
+class _ArrowButton extends StatelessWidget {
+  const _ArrowButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 38,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: const Center(
+        child: Icon(Icons.chevron_right, color: Colors.black54, size: 20),
+      ),
+    );
+  }
+}
+
+class _VerticalEventCard extends StatelessWidget {
   final String title;
-  final String location;
-  final String time;
-  final String attendees;
+  final String dateStr;
+  final String timeStr;
+  final String locationStr;
+  final String joinedCountText;
+  final String statsText;
   final String imageUrl;
 
-  const _EventCard({
+  const _VerticalEventCard({
     required this.title,
-    required this.location,
-    required this.time,
-    required this.attendees,
+    required this.dateStr,
+    required this.timeStr,
+    required this.locationStr,
+    required this.joinedCountText,
+    required this.statsText,
     required this.imageUrl,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFEFEBF5)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Image.network(
-                imageUrl,
-                width: 90,
-                height: 90,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) =>
-                    const Center(child: Icon(Icons.event, color: Colors.black26, size: 36)),
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.black,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    time,
-                    style: const TextStyle(fontSize: 12, color: DenColors.primary, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    location,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF6D6D6D)),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    attendees,
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF1F7A4A)),
-                  ),
-                ],
-              ),
-            ),
-          ],
+    return GestureDetector(
+      onTap: () {
+        context.push('/event/123');
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.grey.shade200),
         ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Image top
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            child: Image.network(
+              imageUrl,
+              height: 220,
+              width: double.infinity,
+              fit: BoxFit.cover,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+            child: Column(
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      '$dateStr • $timeStr',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      '•',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.black38,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.location_on_outlined, size: 14, color: Colors.black54),
+                    const SizedBox(width: 4),
+                    Text(
+                      locationStr,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Avatars
+                    SizedBox(
+                      width: 72,
+                      height: 28,
+                      child: Stack(
+                        children: [
+                          Positioned(
+                            left: 0,
+                            child: CircleAvatar(
+                              radius: 14,
+                              backgroundColor: Colors.white,
+                              child: CircleAvatar(
+                                radius: 13,
+                                backgroundImage: const NetworkImage('https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&fit=crop'),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            left: 20,
+                            child: CircleAvatar(
+                              radius: 14,
+                              backgroundColor: Colors.white,
+                              child: CircleAvatar(
+                                radius: 13,
+                                backgroundImage: const NetworkImage('https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&fit=crop'),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            left: 40,
+                            child: CircleAvatar(
+                              radius: 14,
+                              backgroundColor: Colors.white,
+                              child: CircleAvatar(
+                                radius: 13,
+                                backgroundColor: Colors.grey.shade100,
+                                child: Text(
+                                  joinedCountText,
+                                  style: const TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      statsText,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
       ),
     );
   }
 }
+

@@ -13,17 +13,24 @@ import 'package:den_backend/shared/aws/sms_sender.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as io;
 import 'package:shelf_router/shelf_router.dart';
-
-void main() async {
+void main() async {
   Env.load();
 
   // Initialize Database Pool
   await Database.initialize();
 
   // Dependency Injection: AWS Interfaces & Stub Implementations
-  final SmsSender smsSender = ConsoleSmsSender();
-  final PhotoStorage photoStorage = LocalPhotoStorage();
-  final FaceVerificationService faceVerificationService = StubFaceVerificationService();
+  final SmsSender smsSender = Env.isProduction 
+      ? throw UnimplementedError('Production SmsSender not yet implemented.')
+      : ConsoleSmsSender();
+  
+  final PhotoStorage photoStorage = Env.isProduction
+      ? throw UnimplementedError('Production PhotoStorage not yet implemented.')
+      : LocalPhotoStorage();
+      
+  final FaceVerificationService faceVerificationService = Env.isProduction
+      ? throw UnimplementedError('Production FaceVerificationService not yet implemented.')
+      : StubFaceVerificationService();
 
   // Instantiate Modules
   final authService = AuthService(smsSender: smsSender);

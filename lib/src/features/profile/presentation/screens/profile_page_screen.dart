@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/widgets/den_masonry_grid.dart';
 import '../../../../core/widgets/image_crop_adjust_dialog.dart';
+import '../../../organizer/application/organizer_controller.dart';
 import '../../../profile/application/profile_controller.dart';
 
 class ProfilePageScreen extends ConsumerWidget {
@@ -70,6 +71,8 @@ class ProfilePageScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(profileStateProvider);
+    final organizerState = ref.watch(organizerProvider);
+    final hasOrganizer = organizerState.hasOrganizerProfile;
     final username = profile.username.isNotEmpty ? profile.username : 'username';
 
     return Scaffold(
@@ -328,11 +331,16 @@ class ProfilePageScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 10),
                     _ActionButton(
-                      label: 'Create an Event/Organization Profile',
+                      label: hasOrganizer
+                          ? 'Switch to Organizer Profile'
+                          : 'Create an Event/Organization Profile',
                       onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Event & Organization creation coming soon!')),
-                        );
+                        if (hasOrganizer) {
+                          ref.read(organizerProvider.notifier).switchMode(ProfileMode.organizer);
+                          context.push('/organizer/profile');
+                        } else {
+                          context.push('/organizer/intro');
+                        }
                       },
                     ),
                   ],

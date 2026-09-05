@@ -88,6 +88,43 @@ class AuthController {
       }
     });
 
+    router.post('/logout', (Request request) async {
+      try {
+        final sessionToken = _extractSessionToken(request);
+        if (sessionToken != null && sessionToken.isNotEmpty) {
+          await _authService.revokeSession(sessionToken);
+        }
+        return Response.ok(
+          jsonEncode({'success': true, 'message': 'Logged out successfully'}),
+          headers: {
+            'content-type': 'application/json',
+            'set-cookie': 'rf_session=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax',
+          },
+        );
+      } catch (e) {
+        return Response.internalServerError(
+          body: jsonEncode({'success': false, 'message': 'Failed to logout'}),
+          headers: {'content-type': 'application/json'},
+        );
+      }
+    });
+
     return router;
+  }
+
+  String? _extractSessionToken(Request request) {
+    final authHeader = request.headers['authorization'];
+    if (authHeader != null && authHeader.toLowerCase().startsWith('bearer ')) {
+      return authHeader.substring(7).trim();
+    }
+    final cookieHeader = request.headers['cookie'];
+    if (cookieHeader == null || cookieHeader.isEmpty) return null;
+    for (final cookie in cookieHeader.split(';')) {
+      final parts = cookie.trim().split('=');
+      if (parts.length == 2 && parts[0] == 'rf_session') {
+        return parts[1].trim();
+      }
+    }
+    return null;
   }
 }
