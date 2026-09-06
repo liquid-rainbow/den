@@ -5,8 +5,9 @@ import '../widgets/share_event_bottom_sheet.dart';
 
 class EventDetailsScreen extends StatefulWidget {
   final String eventId;
+  final bool isExclusive;
 
-  const EventDetailsScreen({super.key, required this.eventId});
+  const EventDetailsScreen({super.key, required this.eventId, this.isExclusive = false});
 
   @override
   State<EventDetailsScreen> createState() => _EventDetailsScreenState();
@@ -14,7 +15,14 @@ class EventDetailsScreen extends StatefulWidget {
 
 class _EventDetailsScreenState extends State<EventDetailsScreen> {
   bool _acceptedTerms = false;
-  bool _isExclusive = false; // Toggle to test both flows
+  late bool _isExclusive;
+
+  @override
+  void initState() {
+    super.initState();
+    _isExclusive = widget.isExclusive;
+  }
+
   final Color _primaryPurple = const Color(0xFFA133FF);
   final Color _containerBg = const Color(0xFFF7F7F9);
 

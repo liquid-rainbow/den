@@ -1,5 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../../../profile/data/profile_api_repository.dart';
+import '../../../profile/application/profile_controller.dart';
+import '../../data/repositories/face_verification_repository_impl.dart';
+import '../../data/repositories/photo_upload_repository_impl.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -15,10 +19,6 @@ import '../../../../core/widgets/den_text_styles.dart';
 import '../../../../core/widgets/den_underline_field.dart';
 import '../../../../core/widgets/image_crop_adjust_dialog.dart';
 import '../../../../core/widgets/mobile_device_shell.dart';
-import '../../../profile/application/profile_controller.dart';
-import '../../../profile/data/profile_api_repository.dart';
-import '../../data/repositories/photo_upload_repository_impl.dart';
-import '../../data/repositories/face_verification_repository_impl.dart';
 
 class OnboardingFormState {
   final int currentStep;
@@ -227,9 +227,9 @@ class OnboardingFormNotifier extends Notifier<OnboardingFormState> {
   void setInstagram(String val) =>
       state = state.copyWith(instagramUsername: val.replaceAll(RegExp(r'^@'), ''), error: null);
 
-  final PhotoUploadRepositoryImpl _photoUploadRepo = PhotoUploadRepositoryImpl();
-  final FaceVerificationRepositoryImpl _faceVerificationRepo = FaceVerificationRepositoryImpl();
-  final ProfileApiRepository _profileApiRepo = ProfileApiRepository();
+  PhotoUploadRepositoryImpl get _photoUploadRepo => ref.read(photoUploadRepositoryProvider);
+  FaceVerificationRepositoryImpl get _faceVerificationRepo => ref.read(faceVerificationRepositoryProvider);
+  ProfileApiRepository get _profileApiRepo => ref.read(profileApiRepositoryProvider);
 
   /// Step 7: Photo upload interface call per docs/05-photo-upload-approach.md.
   /// INTENTIONAL BEHAVIOR:
@@ -296,7 +296,7 @@ class OnboardingFormNotifier extends Notifier<OnboardingFormState> {
             fullName: state.fullName.isEmpty ? 'New Member' : state.fullName,
             username: ProfileController.generateUniqueDenUsername(),
             age: _calculateAge(),
-            location: state.location.isEmpty ? 'New York, NY' : state.location,
+            location: state.location.isEmpty ? 'New Delhi, India' : state.location,
             gender: state.gender.isEmpty ? 'Unspecified' : state.gender,
             heightCm: state.heightCm,
             instagramUsername: state.instagramUsername,

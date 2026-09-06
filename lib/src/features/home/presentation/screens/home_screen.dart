@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../profile/application/profile_controller.dart';
+import '../../data/home_api_repository.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final profile = ref.watch(profileStateProvider);
+    final feedAsyncValue = ref.watch(homeFeedProvider(profile.searchRadiusKm));
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -130,29 +135,40 @@ class HomeScreen extends ConsumerWidget {
             // Events List
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  const _VerticalEventCard(
-                    title: 'Rooftop Neon House Party',
-                    dateStr: "12 Oct '24",
-                    timeStr: '9:00 PM',
-                    locationStr: 'Mission District',
-                    joinedCountText: '+42',
-                    statsText: '45 Joined • 15 Spots Left',
-                    imageUrl: 'https://images.unsplash.com/photo-1566737236500-c8ac43014a67?auto=format&fit=crop&w=1200&q=80',
-                  ),
-                  const SizedBox(height: 24),
-                  const _VerticalEventCard(
-                    title: 'Underground Warehouse Rave',
-                    dateStr: "18 Oct '24",
-                    timeStr: '11:00 PM',
-                    locationStr: 'SOMA',
-                    joinedCountText: '+120',
-                    statsText: '122 Joined • 8 Spots Left',
-                    imageUrl: 'https://images.unsplash.com/photo-1540039155732-68ee23e15b51?auto=format&fit=crop&w=1200&q=80',
-                  ),
-                  const SizedBox(height: 24),
-                ]),
+              sliver: feedAsyncValue.when(
+                loading: () => const SliverToBoxAdapter(
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+                error: (error, stack) => SliverToBoxAdapter(
+                  child: Center(child: Text('Error: $error')),
+                ),
+                data: (events) {
+                  if (events.isEmpty) {
+                    return const SliverToBoxAdapter(
+                      child: Center(child: Text('No events found in your area.')),
+                    );
+                  }
+                  return SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final event = events[index];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 24),
+                          child: _VerticalEventCard(
+                            title: event['title'] as String,
+                            dateStr: event['dateStr'] as String,
+                            timeStr: event['timeStr'] as String,
+                            locationStr: event['locationStr'] as String,
+                            joinedCountText: event['joinedCountText'] as String,
+                            statsText: event['statsText'] as String,
+                            imageUrl: event['imageUrl'] as String,
+                          ),
+                        );
+                      },
+                      childCount: events.length,
+                    ),
+                  );
+                },
               ),
             ),
           ],

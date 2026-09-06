@@ -1,5 +1,8 @@
 import 'package:dio/dio.dart';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/network/dio_provider.dart';
+
 class AuthSessionResult {
   final String sessionToken;
   final Map<String, dynamic> user;
@@ -13,15 +16,9 @@ class AuthSessionResult {
 class AuthApiRepository {
   final Dio _dio;
 
-  AuthApiRepository({Dio? dio})
-      : _dio = dio ??
-            Dio(
-              BaseOptions(
-                baseUrl: 'http://localhost:5000',
-                connectTimeout: const Duration(seconds: 5),
-                receiveTimeout: const Duration(seconds: 5),
-              ),
-            );
+  AuthApiRepository(this._dio);
+
+
 
   Future<void> sendOtp({required String phoneNumber}) async {
 
@@ -52,3 +49,7 @@ class AuthApiRepository {
     );
   }
 }
+
+final authApiRepositoryProvider = Provider<AuthApiRepository>((ref) {
+  return AuthApiRepository(ref.watch(dioProvider));
+});

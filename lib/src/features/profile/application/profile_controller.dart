@@ -38,6 +38,7 @@ class ProfileState {
   final String instagramUsername;
   final List<String> photoUrls;
   final bool isFaceVerified;
+  final int searchRadiusKm;
 
   const ProfileState({
     required this.fullName,
@@ -50,6 +51,7 @@ class ProfileState {
     required this.instagramUsername,
     required this.photoUrls,
     required this.isFaceVerified,
+    required this.searchRadiusKm,
   });
 
   factory ProfileState.initial() {
@@ -58,7 +60,7 @@ class ProfileState {
       username: 'den48291',
       age: 24,
       bio: '',
-      location: 'New York, NY',
+      location: 'New Delhi, India',
       gender: 'Male',
       heightCm: 178,
       instagramUsername: 'elenaspace',
@@ -69,6 +71,7 @@ class ProfileState {
         'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80',
       ],
       isFaceVerified: false,
+      searchRadiusKm: 50,
     );
   }
 
@@ -83,6 +86,7 @@ class ProfileState {
     String? instagramUsername,
     List<String>? photoUrls,
     bool? isFaceVerified,
+    int? searchRadiusKm,
   }) {
     return ProfileState(
       fullName: fullName ?? this.fullName,
@@ -95,6 +99,7 @@ class ProfileState {
       instagramUsername: instagramUsername ?? this.instagramUsername,
       photoUrls: photoUrls ?? this.photoUrls,
       isFaceVerified: isFaceVerified ?? this.isFaceVerified,
+      searchRadiusKm: searchRadiusKm ?? this.searchRadiusKm,
     );
   }
 
@@ -191,6 +196,12 @@ class ProfileController extends Notifier<ProfileState> {
 
   void updateFaceVerification(bool isVerified) {
     state = state.copyWith(isFaceVerified: isVerified);
+  }
+
+  void updateSearchRadius(int radius) {
+    if (radius >= 10 && radius <= 50) {
+      state = state.copyWith(searchRadiusKm: radius);
+    }
   }
 }
 

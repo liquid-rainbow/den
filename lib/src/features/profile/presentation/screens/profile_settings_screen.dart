@@ -134,6 +134,68 @@ class ProfileSettingsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
 
+            // Geofencing Card
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFEFEBF5)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Discovery Distance',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.black,
+                        ),
+                      ),
+                      Text(
+                        '${profile.searchRadiusKm} km',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: DenColors.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      activeTrackColor: DenColors.primary,
+                      inactiveTrackColor: const Color(0xFFEFEBF5),
+                      thumbColor: DenColors.primary,
+                      overlayColor: DenColors.primary.withValues(alpha: 0.1),
+                    ),
+                    child: Slider(
+                      value: profile.searchRadiusKm.toDouble(),
+                      min: 10,
+                      max: 50,
+                      divisions: 40,
+                      onChanged: (value) {
+                        ref.read(profileStateProvider.notifier).updateSearchRadius(value.toInt());
+                      },
+                    ),
+                  ),
+                  const Text(
+                    'We will only show people and events within this radius.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF8E8E93),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
             // 4. Group Card for Personal Details (Age, Gender, Height)
             Container(
               decoration: BoxDecoration(

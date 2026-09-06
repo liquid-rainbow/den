@@ -9,6 +9,7 @@ import '../../../../core/widgets/den_masonry_grid.dart';
 import '../../../../core/widgets/image_crop_adjust_dialog.dart';
 import '../../../organizer/application/organizer_controller.dart';
 import '../../../profile/application/profile_controller.dart';
+import '../widgets/profile_event_ticket_card.dart';
 
 class ProfilePageScreen extends ConsumerWidget {
   const ProfilePageScreen({super.key});
@@ -273,14 +274,14 @@ class ProfilePageScreen extends ConsumerWidget {
 
               const SizedBox(height: 20),
 
-              // Location: 📍 New York, NY
+              // Location: 📍 New Delhi, India
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Icon(Icons.location_on_outlined, size: 18, color: Color(0xFF6D6D6D)),
                   const SizedBox(width: 6),
                   Text(
-                    profile.location.isNotEmpty ? profile.location : 'New York, NY',
+                    profile.location.isNotEmpty ? profile.location : 'New Delhi, India',
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -303,6 +304,23 @@ class ProfilePageScreen extends ConsumerWidget {
                     color: Colors.black,
                   ),
                 ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Booked Event Ticket Card
+              ProfileEventTicketCard(
+                eventId: 'evt_123',
+                eventName: 'Neon Nights Festival',
+                date: "24 Aug '25",
+                time: "10:00 PM",
+                location: "Cyber Pier 9",
+                userName: profile.fullName.isNotEmpty ? profile.fullName : 'Raghav',
+                ticketCount: 2,
+                passType: 'VIP',
+                onTap: () {
+                  context.push('/event/evt_123/ticket');
+                },
               ),
 
               const SizedBox(height: 28),

@@ -287,7 +287,7 @@ class _OrganizerEditProfileScreenState
               label: 'PHONE NUMBER',
               icon: Icons.phone_iphone_outlined,
               controller: _phoneController,
-              hint: '+1 (555) 019-2834',
+              hint: '+91 (555) 019-2834',
               keyboardType: TextInputType.phone,
             ),
             const SizedBox(height: 36),

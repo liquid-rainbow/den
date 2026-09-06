@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../data/profile_api_repository.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app.dart';
 import '../../../../core/widgets/mobile_device_shell.dart';
 import '../../../profile/application/profile_controller.dart';
-import '../../../profile/data/profile_api_repository.dart';
 
 class UsernameSettingsScreen extends ConsumerStatefulWidget {
   const UsernameSettingsScreen({super.key});
@@ -15,7 +15,7 @@ class UsernameSettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _UsernameSettingsScreenState extends ConsumerState<UsernameSettingsScreen> {
-  final ProfileApiRepository _repo = ProfileApiRepository();
+  ProfileApiRepository get _repo => ref.read(profileApiRepositoryProvider);
   late final TextEditingController _controller;
   bool _isSaving = false;
 

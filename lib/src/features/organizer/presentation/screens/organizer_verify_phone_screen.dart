@@ -16,12 +16,12 @@ class OrganizerVerifyPhoneScreen extends ConsumerStatefulWidget {
 class _OrganizerVerifyPhoneScreenState
     extends ConsumerState<OrganizerVerifyPhoneScreen> {
   late final TextEditingController _phoneController;
-  String _selectedCountryCode = '+1';
-  String _selectedFlag = '🇺🇸';
+  String _selectedCountryCode = '+91';
+  String _selectedFlag = '🇮🇳';
 
   final List<Map<String, String>> _countryCodes = [
-    {'code': '+1', 'flag': '🇺🇸', 'name': 'United States'},
     {'code': '+91', 'flag': '🇮🇳', 'name': 'India'},
+    {'code': '+1', 'flag': '🇺🇸', 'name': 'United States'},
     {'code': '+44', 'flag': '🇬🇧', 'name': 'United Kingdom'},
     {'code': '+61', 'flag': '🇦🇺', 'name': 'Australia'},
     {'code': '+49', 'flag': '🇩🇪', 'name': 'Germany'},
@@ -34,7 +34,7 @@ class _OrganizerVerifyPhoneScreenState
     super.initState();
     final draft = ref.read(organizerProvider).draft;
     _phoneController = TextEditingController(text: draft.phoneNumber);
-    _selectedCountryCode = draft.countryCode.isNotEmpty ? draft.countryCode : '+1';
+    _selectedCountryCode = draft.countryCode.isNotEmpty ? draft.countryCode : '+91';
     for (final c in _countryCodes) {
       if (c['code'] == _selectedCountryCode) {
         _selectedFlag = c['flag']!;

@@ -354,7 +354,7 @@ class _OrganizerProfileScreenState extends ConsumerState<OrganizerProfileScreen>
                         final event = eventsState.upcomingEvents[index];
                         return OrganizerEventCard(
                           event: event,
-                          onTap: () => context.push('/organizer/events/${event.id}/dashboard'),
+                          onTap: () => context.push('/profile/event/${event.id}/insights'),
                         );
                       },
                     ),

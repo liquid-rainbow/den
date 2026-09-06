@@ -2,11 +2,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../data/profile_api_repository.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/widgets/den_masonry_grid.dart';
 import '../../../profile/application/profile_controller.dart';
-import '../../../profile/data/profile_api_repository.dart';
 
 class PublicProfileScreen extends ConsumerStatefulWidget {
   final String username;
@@ -18,7 +18,7 @@ class PublicProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen> {
-  final ProfileApiRepository _repo = ProfileApiRepository();
+  ProfileApiRepository get _repo => ref.read(profileApiRepositoryProvider);
   late final Future<Map<String, dynamic>> _profileFuture;
 
   @override
@@ -65,7 +65,7 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen> {
               'username': resolvedUsername,
               'age': 24,
               'bio': '',
-              'location': 'New York, NY',
+              'location': 'New Delhi, India',
               'gender': 'Male',
               'heightCm': 178,
               'instagramUsername': 'elenaspace',
@@ -257,7 +257,7 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen> {
                           const Icon(Icons.location_on_outlined, size: 18, color: Color(0xFF6D6D6D)),
                           const SizedBox(width: 6),
                           Text(
-                            profile['location']?.toString() ?? 'New York, NY',
+                            profile['location']?.toString() ?? 'New Delhi, India',
                             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1E1E1E)),
                           ),
                         ],

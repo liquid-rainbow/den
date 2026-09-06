@@ -16,6 +16,7 @@ import 'features/home/presentation/screens/event_attendees_screen.dart';
 import 'features/home/presentation/screens/event_booking_screen.dart';
 import 'features/home/presentation/screens/event_checkout_screen.dart';
 import 'features/home/presentation/screens/event_request_screen.dart';
+import 'features/profile/presentation/screens/host_event_insights_screen.dart';
 import 'features/main_navigation/presentation/main_shell_screen.dart';
 import 'features/notifications/presentation/screens/all_notifications_screen.dart';
 import 'features/notifications/presentation/screens/notifications_screen.dart';
@@ -43,6 +44,10 @@ import 'features/organizer/presentation/screens/organizer_profile_screen.dart';
 import 'features/organizer/presentation/screens/organizer_settings_screen.dart';
 import 'features/organizer/presentation/screens/organizer_setup_screen.dart';
 import 'features/organizer/presentation/screens/organizer_verify_phone_screen.dart';
+import 'features/organizer/presentation/screens/public_organizer_profile_screen.dart';
+
+import 'features/organizer/presentation/screens/organizer_manual_approve_screen.dart';
+import 'features/organizer/presentation/screens/qr_scanner_screen.dart';
 import 'features/profile/presentation/screens/account_deletion_screen.dart';
 import 'features/profile/presentation/screens/edit_profile_screen.dart';
 import 'features/profile/presentation/screens/face_verification_settings_screen.dart';
@@ -157,7 +162,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/event/:id',
         builder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
-          return EventDetailsScreen(eventId: id);
+          final exclusive = state.uri.queryParameters['exclusive'] == 'true';
+          return EventDetailsScreen(eventId: id, isExclusive: exclusive);
         },
       ),
       GoRoute(
@@ -206,6 +212,25 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
 
       // Organizer Suite Routes
+      GoRoute(
+        path: '/organizer/public/:username',
+        builder: (context, state) {
+          final username = state.pathParameters['username'] ?? '';
+          return PublicOrganizerProfileScreen(username: username);
+        },
+      ),
+      GoRoute(
+        path: '/organizer/followers',
+        builder: (context, state) => const OrganizerFollowersScreen(),
+      ),
+      GoRoute(
+        path: '/organizer/approve-manually',
+        builder: (context, state) => const OrganizerManualApproveScreen(),
+      ),
+      GoRoute(
+        path: '/organizer/scanner',
+        builder: (context, state) => const QRScannerScreen(),
+      ),
       GoRoute(
         path: '/organizer/intro',
         builder: (context, state) => const OrganizerIntroScreen(),
@@ -407,6 +432,13 @@ final routerProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: 'face-verification',
                     builder: (context, state) => const FaceVerificationSettingsScreen(),
+                  ),
+                  GoRoute(
+                    path: 'event/:id/insights',
+                    builder: (context, state) {
+                      final id = state.pathParameters['id'] ?? '';
+                      return HostEventInsightsScreen(eventId: id);
+                    },
                   ),
                 ],
               ),

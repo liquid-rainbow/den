@@ -1,17 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../application/notification_controller.dart';
+import '../../../organizer/application/organizer_controller.dart';
 
-class NotificationsScreen extends StatelessWidget {
+class NotificationsScreen extends ConsumerWidget {
   const NotificationsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     const bgSurface = Color(0xFFFAF8FF);
     const onSurface = Color(0xFF131B2E);
     const primaryColor = Color(0xFF004AC6);
-    const primaryContainer = Color(0xFF2563EB);
-    const secondaryContainer = Color(0xFFD0E1FB);
     const surfaceVariant = Color(0xFFDAE2FD);
+
+    final notificationState = ref.watch(notificationProvider);
+    final isOrganizerMode = ref.watch(organizerProvider).activeMode == ProfileMode.organizer;
+
+    // Filter notifications based on mode
+    final requests = notificationState.notifications.where((n) => n.type == NotificationType.request).toList();
+    final otherNotifications = notificationState.notifications.where((n) => n.type != NotificationType.request).toList();
 
     return Scaffold(
       backgroundColor: bgSurface,
@@ -23,9 +31,9 @@ class NotificationsScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Title Header
-                const Text(
-                  'Notifications',
-                  style: TextStyle(
+                Text(
+                  isOrganizerMode ? 'Aura Collective' : 'Notifications',
+                  style: const TextStyle(
                     fontFamily: 'Manrope',
                     fontSize: 24,
                     fontWeight: FontWeight.w700,
@@ -34,185 +42,99 @@ class NotificationsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 18),
 
-                // Section 1: Recent Notifications
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Recent',
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: onSurface,
-                      ),
+                if (isOrganizerMode) ...[
+                  // Organizer Notifications (Requests)
+                  if (requests.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      child: Text('No pending requests.', style: TextStyle(color: Colors.grey)),
                     ),
-                    TextButton(
-                      onPressed: () {
-                        context.push('/notifications/recent');
-                      },
-                      style: TextButton.styleFrom(
-                        foregroundColor: primaryColor,
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                      child: const Text(
-                        'View All',
+                  for (final req in requests)
+                    _RequestCard(notification: req),
+                ] else ...[
+                  // Regular User Notifications
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Recent',
                         style: TextStyle(
                           fontFamily: 'Manrope',
-                          fontSize: 14,
+                          fontSize: 18,
                           fontWeight: FontWeight.w600,
+                          color: onSurface,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                // Recent Notification Items (Top 4 items)
-                _RecentRow(
-                  iconWidget: Container(
-                    width: 48,
-                    height: 48,
-                    decoration: const BoxDecoration(
-                      color: primaryContainer,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.event, color: Colors.white, size: 24),
-                  ),
-                  text: 'You are invited to the event',
-                  hasBorder: true,
-                ),
-
-                _RecentRow(
-                  iconWidget: Container(
-                    width: 48,
-                    height: 48,
-                    decoration: const BoxDecoration(
-                      color: secondaryContainer,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.task_alt, color: Color(0xFF0B1C30), size: 24),
-                  ),
-                  text: 'Your request has been approved',
-                  hasBorder: true,
-                ),
-
-                _RecentRow(
-                  iconWidget: ClipRRect(
-                    borderRadius: BorderRadius.circular(24),
-                    child: Image.network(
-                      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-                      width: 48,
-                      height: 48,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          const Center(child: Icon(Icons.person, color: Colors.black26)),
-                    ),
-                  ),
-                  text: 'New comment on your post',
-                  hasBorder: true,
-                ),
-
-                _RecentRow(
-                  iconWidget: ClipRRect(
-                    borderRadius: BorderRadius.circular(24),
-                    child: Image.network(
-                      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80',
-                      width: 48,
-                      height: 48,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          const Center(child: Icon(Icons.person, color: Colors.black26)),
-                    ),
-                  ),
-                  text: 'New match connected with Kabir',
-                  hasBorder: false,
-                ),
-
-                const SizedBox(height: 16),
-                Divider(color: surfaceVariant.withValues(alpha: 0.5), height: 1),
-                const SizedBox(height: 16),
-
-                // Section 2: Invites
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Invites',
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: onSurface,
+                      TextButton(
+                        onPressed: () {},
+                        style: TextButton.styleFrom(
+                          foregroundColor: primaryColor,
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        child: const Text(
+                          'View All',
+                          style: TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  if (otherNotifications.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      child: Text('No recent notifications.', style: TextStyle(color: Colors.grey)),
                     ),
-                    TextButton(
-                      onPressed: () {
-                        context.push('/notifications/all?tab=invites');
-                      },
-                      style: TextButton.styleFrom(
-                        foregroundColor: primaryColor,
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                      child: const Text(
-                        'View All',
+
+                  for (int i = 0; i < otherNotifications.length; i++)
+                    _NotificationRow(
+                      notification: otherNotifications[i],
+                      hasBorder: i != otherNotifications.length - 1,
+                    ),
+
+                  const SizedBox(height: 16),
+                  Divider(color: surfaceVariant.withValues(alpha: 0.5), height: 1),
+                  const SizedBox(height: 16),
+
+                  // Invites Section placeholder
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Invites',
                         style: TextStyle(
                           fontFamily: 'Manrope',
-                          fontSize: 14,
+                          fontSize: 18,
                           fontWeight: FontWeight.w600,
+                          color: onSurface,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                // 2-Column Grid of Latest Invites (Top 4)
-                GridView.count(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 14,
-                  mainAxisSpacing: 14,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  childAspectRatio: 0.70,
-                  children: const [
-                    _InviteCard(
-                      imageProvider: NetworkImage(
-                        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+                      TextButton(
+                        onPressed: () {},
+                        style: TextButton.styleFrom(
+                          foregroundColor: primaryColor,
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        child: const Text(
+                          'View All',
+                          style: TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
-                      badgeText: 'Party Night',
-                      message: 'Hey, are you free this weekend?',
-                      nameAge: 'Sophia, 24',
-                    ),
-                    _InviteCard(
-                      imageProvider: NetworkImage(
-                        'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=400&q=80',
-                      ),
-                      badgeText: 'Dinner Date',
-                      message: 'Let’s check out that new rooftop place.',
-                      nameAge: 'Emma, 22',
-                    ),
-                    _InviteCard(
-                      imageProvider: NetworkImage(
-                        'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=400&q=80',
-                      ),
-                      badgeText: 'Coffee Hangout',
-                      message: 'Coffee date this Friday?',
-                      nameAge: 'Olivia, 25',
-                    ),
-                    _InviteCard(
-                      imageProvider: NetworkImage(
-                        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
-                      ),
-                      badgeText: 'Live Concert',
-                      message: 'Got an extra ticket for acoustic night!',
-                      nameAge: 'Alex, 26',
-                    ),
-                  ],
-                ),
-
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  const Text('No recent invites.', style: TextStyle(color: Colors.grey)),
+                ],
                 const SizedBox(height: 24),
               ],
             ),
@@ -223,158 +145,223 @@ class NotificationsScreen extends StatelessWidget {
   }
 }
 
-class _RecentRow extends StatelessWidget {
-  final Widget iconWidget;
-  final String text;
+class _NotificationRow extends ConsumerWidget {
+  final AppNotification notification;
   final bool hasBorder;
 
-  const _RecentRow({
-    required this.iconWidget,
-    required this.text,
+  const _NotificationRow({
+    required this.notification,
     required this.hasBorder,
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     const surfaceVariant = Color(0xFFDAE2FD);
     const onSurface = Color(0xFF131B2E);
+    const primaryContainer = Color(0xFF2563EB);
+    const secondaryContainer = Color(0xFFD0E1FB);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      decoration: BoxDecoration(
-        border: hasBorder
-            ? Border(bottom: BorderSide(color: surfaceVariant.withValues(alpha: 0.35)))
-            : null,
-      ),
-      child: Row(
-        children: [
-          iconWidget,
-          const SizedBox(width: 14),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: onSurface,
+    Widget iconWidget;
+    if (notification.type == NotificationType.invite) {
+      iconWidget = Container(
+        width: 48,
+        height: 48,
+        decoration: const BoxDecoration(
+          color: primaryContainer,
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(Icons.event, color: Colors.white, size: 24),
+      );
+    } else if (notification.type == NotificationType.approved) {
+      iconWidget = Container(
+        width: 48,
+        height: 48,
+        decoration: const BoxDecoration(
+          color: secondaryContainer,
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(Icons.task_alt, color: Color(0xFF0B1C30), size: 24),
+      );
+    } else {
+      iconWidget = ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Image.network(
+          notification.iconUrl ?? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+          width: 48,
+          height: 48,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) =>
+              const Center(child: Icon(Icons.person, color: Colors.black26)),
+        ),
+      );
+    }
+
+    return InkWell(
+      onTap: () {
+        if (notification.type == NotificationType.approved && notification.eventId != null) {
+          // Go to ticket
+          context.push('/event/${notification.eventId}/ticket');
+        } else if (notification.type == NotificationType.invite && notification.eventId != null) {
+          // Go to exclusive event details
+          context.push('/event/${notification.eventId}?exclusive=true');
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          border: hasBorder
+              ? Border(bottom: BorderSide(color: surfaceVariant.withValues(alpha: 0.35)))
+              : null,
+        ),
+        child: Row(
+          children: [
+            iconWidget,
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    notification.title,
+                    style: const TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: onSurface,
+                    ),
+                  ),
+                  if (notification.subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      notification.subtitle!,
+                      style: const TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 13,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 8),
+            Text(
+              notification.timeString,
+              style: const TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 12,
+                color: Colors.black45,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _InviteCard extends StatelessWidget {
-  final ImageProvider imageProvider;
-  final String badgeText;
-  final String message;
-  final String nameAge;
+class _RequestCard extends ConsumerWidget {
+  final AppNotification notification;
 
-  const _InviteCard({
-    required this.imageProvider,
-    required this.badgeText,
-    required this.message,
-    required this.nameAge,
-  });
+  const _RequestCard({required this.notification});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        image: DecorationImage(
-          image: imageProvider,
-          fit: BoxFit.cover,
-        ),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: Stack(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Gradient Scrim
-          Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              gradient: LinearGradient(
-                colors: [
-                  Colors.transparent,
-                  Colors.black.withValues(alpha: 0.1),
-                  Colors.black.withValues(alpha: 0.8),
-                ],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                stops: const [0.4, 0.6, 1.0],
-              ),
-            ),
-          ),
-
-          // Event Badge
-          Positioned(
-            top: 10,
-            left: 10,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.65),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                badgeText,
-                style: const TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
+          Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Image.network(
+                  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+                  width: 40,
+                  height: 40,
+                  fit: BoxFit.cover,
                 ),
               ),
-            ),
-          ),
-
-          // Message & Details
-          Positioned(
-            bottom: 12,
-            left: 12,
-            right: 12,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(14),
-                      topRight: Radius.circular(14),
-                      bottomRight: Radius.circular(14),
-                      bottomLeft: Radius.circular(4),
-                    ),
-                  ),
-                  child: Text(
-                    message,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontFamily: 'Manrope',
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: Color(0xFF131B2E),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  nameAge,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  notification.title,
                   style: const TextStyle(
                     fontFamily: 'Manrope',
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF131B2E),
                   ),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                notification.timeString,
+                style: const TextStyle(
+                  fontFamily: 'Manrope',
+                  fontSize: 12,
+                  color: Colors.black45,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    ref.read(notificationProvider.notifier).approveRequest(
+                          notification.id,
+                          notification.eventId ?? 'evt_123',
+                          'Silent Dinner Series',
+                        );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF361D32),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                  ),
+                  child: const Text('Approve', style: TextStyle(fontWeight: FontWeight.w600)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () {
+                    ref.read(notificationProvider.notifier).rejectRequest(notification.id);
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF361D32),
+                    side: const BorderSide(color: Color(0xFFE5E7EB)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                  ),
+                  child: const Text('Reject', style: TextStyle(fontWeight: FontWeight.w600)),
+                ),
+              ),
+            ],
           ),
         ],
       ),

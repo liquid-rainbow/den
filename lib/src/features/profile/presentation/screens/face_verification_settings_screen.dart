@@ -15,7 +15,7 @@ class FaceVerificationSettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _FaceVerificationSettingsScreenState extends ConsumerState<FaceVerificationSettingsScreen> {
-  final FaceVerificationRepositoryImpl _repository = FaceVerificationRepositoryImpl();
+  FaceVerificationRepositoryImpl get _repository => ref.read(faceVerificationRepositoryProvider);
   bool _isLoading = false;
   String? _statusMessage;
   String? _errorMessage;

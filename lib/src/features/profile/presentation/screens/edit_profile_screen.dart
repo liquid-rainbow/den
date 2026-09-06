@@ -246,7 +246,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 label: 'LOCATION',
                 icon: Icons.location_on_outlined,
                 controller: _locationController,
-                hintText: 'New York, NY',
+                hintText: 'New Delhi, India',
               ),
               const SizedBox(height: 16),
 

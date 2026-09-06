@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
+import 'package:dio/dio.dart';
 import '../../data/auth_api_repository.dart';
 
 class AuthFlowState {
@@ -51,7 +51,7 @@ class AuthFlowState {
 
 class AuthFlowNotifier extends Notifier<AuthFlowState> {
   Timer? _timer;
-  final AuthApiRepository _repo = AuthApiRepository();
+  AuthApiRepository get _repo => ref.read(authApiRepositoryProvider);
 
   @override
   AuthFlowState build() {
@@ -98,11 +98,19 @@ class AuthFlowNotifier extends Notifier<AuthFlowState> {
 
     try {
       await _repo.sendOtp(phoneNumber: state.fullPhoneNumber);
+    } on DioException catch (e) {
+      String errorMessage = 'Failed to send OTP. Please try again.';
+      if (e.type == DioExceptionType.connectionTimeout || 
+          e.type == DioExceptionType.receiveTimeout || 
+          e.type == DioExceptionType.connectionError) {
+        errorMessage = 'Unable to reach the server. Please check your connection and try again.';
+      } else if (e.response?.data != null && e.response?.data['message'] != null) {
+        errorMessage = e.response!.data['message'];
+      }
+      state = state.copyWith(isSubmitting: false, error: errorMessage);
+      return false;
     } catch (e) {
-      state = state.copyWith(
-        isSubmitting: false,
-        error: 'Failed to send OTP: ${e.toString()}',
-      );
+      state = state.copyWith(isSubmitting: false, error: 'An unexpected error occurred.');
       return false;
     }
 
@@ -135,16 +143,19 @@ class AuthFlowNotifier extends Notifier<AuthFlowState> {
         sessionToken: result.sessionToken,
       );
       return result;
-    } catch (e) {
+    } on DioException catch (e) {
       String errorMessage = 'Invalid or expired verification code.';
-      final raw = e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
-      if (raw.isNotEmpty) {
-        errorMessage = raw;
+      if (e.type == DioExceptionType.connectionTimeout || 
+          e.type == DioExceptionType.receiveTimeout || 
+          e.type == DioExceptionType.connectionError) {
+        errorMessage = 'Unable to reach the server. Please check your connection and try again.';
+      } else if (e.response?.data != null && e.response?.data['message'] != null) {
+        errorMessage = e.response!.data['message'];
       }
-      state = state.copyWith(
-        isSubmitting: false,
-        error: errorMessage,
-      );
+      state = state.copyWith(isSubmitting: false, error: errorMessage);
+      return null;
+    } catch (e) {
+      state = state.copyWith(isSubmitting: false, error: 'An unexpected error occurred.');
       return null;
     }
   }

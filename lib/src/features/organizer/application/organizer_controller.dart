@@ -20,7 +20,7 @@ class OrganizerDraftState {
     this.avatarUrl = '',
     this.instagramHandle = '',
     this.phoneNumber = '',
-    this.countryCode = '+1',
+    this.countryCode = '+91',
   });
 
   OrganizerDraftState copyWith({

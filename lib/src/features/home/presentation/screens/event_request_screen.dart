@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../notifications/application/notification_controller.dart';
+import '../../../profile/application/profile_controller.dart';
 
-class EventRequestScreen extends StatelessWidget {
+class EventRequestScreen extends ConsumerWidget {
   final String eventId;
 
   const EventRequestScreen({super.key, required this.eventId});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final primaryPurple = const Color(0xFF6B18D1);
     
     return Scaffold(
@@ -170,16 +173,23 @@ class EventRequestScreen extends StatelessWidget {
             
             const SizedBox(height: 48),
             
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Request sent successfully!')),
-                  );
-                  // Return to home as requested
-                  context.go('/');
-                },
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    final requesterName = ref.read(profileStateProvider).fullName;
+                    ref.read(notificationProvider.notifier).addRequestNotification(
+                          eventId,
+                          'Silent Dinner Series', // hardcoded for UI purposes
+                          requesterName,
+                        );
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Request sent successfully!')),
+                    );
+                    // Return to home as requested
+                    context.go('/');
+                  },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryPurple,
                   padding: const EdgeInsets.symmetric(vertical: 18),

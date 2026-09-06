@@ -20,7 +20,7 @@ class OrganizerProfile {
     required this.avatarUrl,
     required this.instagramHandle,
     required this.phoneNumber,
-    this.countryCode = '+1',
+    this.countryCode = '+91',
     required this.followerCount,
     required this.photoUrls,
     this.videoThumbnails = const [],

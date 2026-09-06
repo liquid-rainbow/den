@@ -40,7 +40,7 @@ class _FollowingScreenState extends State<FollowingScreen> {
       'fullName': 'Sophia Loren',
       'avatarUrl': 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=400&q=80',
       'age': 22,
-      'location': 'New York, NY',
+      'location': 'New Delhi, India',
       'isMatched': true,
     },
   ];
