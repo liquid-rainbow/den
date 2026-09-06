@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
+import '../../data/auth_api_repository.dart';
 
 class AuthFlowState {
   final String countryCode;
@@ -8,6 +10,7 @@ class AuthFlowState {
   final String otpCode;
   final bool isSubmitting;
   final int timerSeconds;
+  final String? sessionToken;
   final String? error;
 
   const AuthFlowState({
@@ -17,6 +20,7 @@ class AuthFlowState {
     this.otpCode = '',
     this.isSubmitting = false,
     this.timerSeconds = 30,
+    this.sessionToken,
     this.error,
   });
 
@@ -29,6 +33,7 @@ class AuthFlowState {
     String? otpCode,
     bool? isSubmitting,
     int? timerSeconds,
+    String? sessionToken,
     String? error,
   }) {
     return AuthFlowState(
@@ -38,6 +43,7 @@ class AuthFlowState {
       otpCode: otpCode ?? this.otpCode,
       isSubmitting: isSubmitting ?? this.isSubmitting,
       timerSeconds: timerSeconds ?? this.timerSeconds,
+      sessionToken: sessionToken ?? this.sessionToken,
       error: error,
     );
   }
@@ -45,6 +51,7 @@ class AuthFlowState {
 
 class AuthFlowNotifier extends Notifier<AuthFlowState> {
   Timer? _timer;
+  AuthApiRepository get _repo => ref.read(authApiRepositoryProvider);
 
   @override
   AuthFlowState build() {
@@ -88,9 +95,24 @@ class AuthFlowNotifier extends Notifier<AuthFlowState> {
     }
 
     state = state.copyWith(isSubmitting: true, error: null);
-    
-    // Simulate network delay for UI responsiveness
-    await Future.delayed(const Duration(milliseconds: 600));
+
+    try {
+      await _repo.sendOtp(phoneNumber: state.fullPhoneNumber);
+    } on DioException catch (e) {
+      String errorMessage = 'Failed to send OTP. Please try again.';
+      if (e.type == DioExceptionType.connectionTimeout || 
+          e.type == DioExceptionType.receiveTimeout || 
+          e.type == DioExceptionType.connectionError) {
+        errorMessage = 'Unable to reach the server. Please check your connection and try again.';
+      } else if (e.response?.data != null && e.response?.data['message'] != null) {
+        errorMessage = e.response!.data['message'];
+      }
+      state = state.copyWith(isSubmitting: false, error: errorMessage);
+      return false;
+    } catch (e) {
+      state = state.copyWith(isSubmitting: false, error: 'An unexpected error occurred.');
+      return false;
+    }
 
     state = state.copyWith(
       isSubmitting: false,
@@ -102,19 +124,40 @@ class AuthFlowNotifier extends Notifier<AuthFlowState> {
     return true;
   }
 
-  Future<bool> verifyOtp() async {
+  Future<AuthSessionResult?> verifyOtp() async {
     if (state.otpCode.length != 6) {
       state = state.copyWith(error: 'Please enter the full 6-digit code.');
-      return false;
+      return null;
     }
 
     state = state.copyWith(isSubmitting: true, error: null);
 
-    // Simulate network verification delay
-    await Future.delayed(const Duration(milliseconds: 600));
+    try {
+      final result = await _repo.verifyOtp(
+        phoneNumber: state.fullPhoneNumber,
+        code: state.otpCode,
+      );
 
-    state = state.copyWith(isSubmitting: false);
-    return true;
+      state = state.copyWith(
+        isSubmitting: false,
+        sessionToken: result.sessionToken,
+      );
+      return result;
+    } on DioException catch (e) {
+      String errorMessage = 'Invalid or expired verification code.';
+      if (e.type == DioExceptionType.connectionTimeout || 
+          e.type == DioExceptionType.receiveTimeout || 
+          e.type == DioExceptionType.connectionError) {
+        errorMessage = 'Unable to reach the server. Please check your connection and try again.';
+      } else if (e.response?.data != null && e.response?.data['message'] != null) {
+        errorMessage = e.response!.data['message'];
+      }
+      state = state.copyWith(isSubmitting: false, error: errorMessage);
+      return null;
+    } catch (e) {
+      state = state.copyWith(isSubmitting: false, error: 'An unexpected error occurred.');
+      return null;
+    }
   }
 
   void resendOtp() {

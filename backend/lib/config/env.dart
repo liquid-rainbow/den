@@ -13,6 +13,11 @@ class Env {
       _dbName = dotenv['DB_NAME'] ?? _dbName;
       _dbUser = dotenv['DB_USER'] ?? _dbUser;
       _dbPassword = dotenv['DB_PASSWORD'] ?? _dbPassword;
+      _dbPoolSize = int.tryParse(dotenv['DB_POOL_SIZE'] ?? '') ?? _dbPoolSize;
+    }
+    
+    if (_dbPoolSize <= 0) {
+      throw StateError('DB_POOL_SIZE must be a positive integer.');
     }
   }
 
@@ -24,6 +29,7 @@ class Env {
   static String _dbName = Platform.environment['DB_NAME'] ?? 'den_db';
   static String _dbUser = Platform.environment['DB_USER'] ?? 'postgres';
   static String _dbPassword = Platform.environment['DB_PASSWORD'] ?? 'postgres';
+  static int _dbPoolSize = int.tryParse(Platform.environment['DB_POOL_SIZE'] ?? '') ?? 10;
 
   static String get environment => _environment;
   static bool get isProduction => _environment.toLowerCase() == 'production';
@@ -34,4 +40,5 @@ class Env {
   static String get dbName => _dbName;
   static String get dbUser => _dbUser;
   static String get dbPassword => _dbPassword;
+  static int get dbPoolSize => _dbPoolSize;
 }

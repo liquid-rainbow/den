@@ -1,5 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../../../profile/data/profile_api_repository.dart';
+import '../../../profile/application/profile_controller.dart';
+import '../../data/repositories/face_verification_repository_impl.dart';
+import '../../data/repositories/photo_upload_repository_impl.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -13,9 +17,8 @@ import '../../../../core/theme/den_colors.dart';
 import '../../../../core/widgets/den_buttons.dart';
 import '../../../../core/widgets/den_text_styles.dart';
 import '../../../../core/widgets/den_underline_field.dart';
+import '../../../../core/widgets/image_crop_adjust_dialog.dart';
 import '../../../../core/widgets/mobile_device_shell.dart';
-import '../../data/repositories/photo_upload_repository_impl.dart';
-import '../../data/repositories/face_verification_repository_impl.dart';
 
 class OnboardingFormState {
   final int currentStep;
@@ -224,8 +227,9 @@ class OnboardingFormNotifier extends Notifier<OnboardingFormState> {
   void setInstagram(String val) =>
       state = state.copyWith(instagramUsername: val.replaceAll(RegExp(r'^@'), ''), error: null);
 
-  final PhotoUploadRepositoryImpl _photoUploadRepo = PhotoUploadRepositoryImpl();
-  final FaceVerificationRepositoryImpl _faceVerificationRepo = FaceVerificationRepositoryImpl();
+  PhotoUploadRepositoryImpl get _photoUploadRepo => ref.read(photoUploadRepositoryProvider);
+  FaceVerificationRepositoryImpl get _faceVerificationRepo => ref.read(faceVerificationRepositoryProvider);
+  ProfileApiRepository get _profileApiRepo => ref.read(profileApiRepositoryProvider);
 
   /// Step 7: Photo upload interface call per docs/05-photo-upload-approach.md.
   /// INTENTIONAL BEHAVIOR:
@@ -269,17 +273,98 @@ class OnboardingFormNotifier extends Notifier<OnboardingFormState> {
       final isLive = await _faceVerificationRepo.verifyFace(sessionId: sessionId);
       setFaceVerified(isLive);
       if (isLive) {
-        ref.read(authStateProvider.notifier).updateAuth(
-              isAuthenticated: true,
-              hasAcceptedGuardrail: true,
-              isOnboardingComplete: true,
-            );
+        await completeOnboarding(ref);
       }
     } catch (e) {
       state = state.copyWith(
         error: 'Face verification failed: Backend API unavailable (${e.toString()})',
       );
     }
+  }
+
+  int _calculateAge() {
+    final birthYear = int.tryParse(state.year);
+    if (birthYear != null && birthYear > 1900) {
+      return DateTime.now().year - birthYear;
+    }
+    return 24;
+  }
+
+  void _seedProfileFromOnboarding(WidgetRef ref) {
+    ref.read(profileStateProvider.notifier).seedFromOnboarding(
+          ProfileSeed(
+            fullName: state.fullName.isEmpty ? 'New Member' : state.fullName,
+            username: ProfileController.generateUniqueDenUsername(),
+            age: _calculateAge(),
+            location: state.location.isEmpty ? 'New Delhi, India' : state.location,
+            gender: state.gender.isEmpty ? 'Unspecified' : state.gender,
+            heightCm: state.heightCm,
+            instagramUsername: state.instagramUsername,
+            photoUrls: state.photos,
+            isFaceVerified: state.isFaceVerified,
+          ),
+        );
+  }
+
+  Future<void> _completeOnboarding(WidgetRef ref) async {
+    final auth = ref.read(authStateProvider);
+    final sessionToken = auth.sessionToken;
+    if (sessionToken == null || sessionToken.isEmpty) {
+      state = state.copyWith(error: 'Session expired. Please log in again.');
+      return;
+    }
+
+    try {
+      final user = await _profileApiRepo.completeOnboarding(
+        sessionToken: sessionToken,
+        payload: {
+          'phoneNumber': ref.read(authStateProvider).phoneNumber ?? '',
+          'fullName': state.fullName,
+          'dob': _composeDob(),
+          'gender': state.gender,
+          'heightCm': state.heightCm,
+          'location': state.location,
+          'photos': state.photos,
+          'instagramUsername': state.instagramUsername,
+        },
+      );
+
+      ref.read(profileStateProvider.notifier).seedFromOnboarding(
+            ProfileSeed(
+              fullName: user['fullName']?.toString() ?? state.fullName,
+              username: ProfileController.generateUniqueDenUsername(),
+              age: _calculateAge(),
+              location: user['location']?.toString() ?? state.location,
+              gender: user['gender']?.toString() ?? state.gender,
+              heightCm: (user['heightCm'] as num?)?.toInt() ?? state.heightCm,
+              instagramUsername: user['instagramUsername']?.toString() ?? state.instagramUsername,
+              photoUrls: (user['photos'] as List<dynamic>?)
+                      ?.map((item) => item.toString())
+                      .toList() ??
+                  state.photos,
+              isFaceVerified: state.isFaceVerified,
+            ),
+          );
+
+      ref.read(authStateProvider.notifier).updateAuth(
+            isAuthenticated: true,
+            hasAcceptedGuardrail: true,
+            isOnboardingComplete: true,
+          );
+    } catch (e) {
+      final raw = e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
+      state = state.copyWith(
+        error: raw.isNotEmpty
+            ? raw
+            : 'Failed to complete profile setup. Please try again.',
+      );
+    }
+  }
+
+  String _composeDob() {
+    final day = state.day.padLeft(2, '0');
+    final month = state.month.padLeft(2, '0');
+    return '${state.year}-$month-$day';
   }
 
   void addPhoto(String url) {
@@ -297,6 +382,11 @@ class OnboardingFormNotifier extends Notifier<OnboardingFormState> {
 
   void setFaceVerified(bool verified) {
     state = state.copyWith(isFaceVerified: verified, error: null);
+  }
+
+  Future<void> completeOnboarding(WidgetRef ref) async {
+    _seedProfileFromOnboarding(ref);
+    await _completeOnboarding(ref);
   }
 
   void previousStep() {
@@ -386,6 +476,16 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
     }
   }
 
+  Future<void> _pickAndUploadPhoto(OnboardingFormNotifier notifier) async {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(source: ImageSource.gallery);
+    if (!mounted || image == null) return;
+    final adjusted = await ImageCropAdjustDialog.show(context, image);
+    if (adjusted != null) {
+      await notifier.uploadPhoto(adjusted);
+    }
+  }
+
   @override
   void dispose() {
     _mapController.dispose();
@@ -449,9 +549,10 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
                               notifier.previousStep();
                             } else {
                               ref.read(authStateProvider.notifier).updateAuth(
-                                    isAuthenticated: true,
+                                    isAuthenticated: false,
                                     hasAcceptedGuardrail: false,
                                     isOnboardingComplete: false,
+                                    sessionToken: null,
                                   );
                             }
                           },
@@ -729,11 +830,7 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
                   GestureDetector(
                     onTap: () async {
                       if (!hasMainPhoto) {
-                        final picker = ImagePicker();
-                        final image = await picker.pickImage(source: ImageSource.gallery);
-                        if (image != null) {
-                          await notifier.uploadPhoto(image);
-                        }
+                        await _pickAndUploadPhoto(notifier);
                       }
                     },
                     child: Stack(
@@ -791,11 +888,7 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
                               if (hasMainPhoto) {
                                 notifier.removePhoto(0);
                               } else {
-                                final picker = ImagePicker();
-                                final image = await picker.pickImage(source: ImageSource.gallery);
-                                if (image != null) {
-                                  await notifier.uploadPhoto(image);
-                                }
+                                await _pickAndUploadPhoto(notifier);
                               }
                             },
                             child: Container(
@@ -913,13 +1006,7 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
                       );
                     } else {
                       return GestureDetector(
-                        onTap: () async {
-                          final picker = ImagePicker();
-                          final image = await picker.pickImage(source: ImageSource.gallery);
-                          if (image != null) {
-                            await notifier.uploadPhoto(image);
-                          }
-                        },
+                        onTap: () async => await _pickAndUploadPhoto(notifier),
                         child: Container(
                           decoration: BoxDecoration(
                             color: const Color(0xFF3F2537).withValues(alpha: 0.05),
@@ -969,12 +1056,8 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
             const SizedBox(height: 14),
             denSecondaryButton(
               label: 'SKIP FOR NOW',
-              onPressed: () {
-                ref.read(authStateProvider.notifier).updateAuth(
-                      isAuthenticated: true,
-                      hasAcceptedGuardrail: true,
-                      isOnboardingComplete: true,
-                    );
+              onPressed: () async {
+                await notifier.completeOnboarding(ref);
               },
             ),
           ],

@@ -24,8 +24,8 @@ class Database {
 
     _pool = Pool.withEndpoints(
       [endpoint],
-      settings: const PoolSettings(
-        maxConnectionCount: 10,
+      settings: PoolSettings(
+        maxConnectionCount: Env.dbPoolSize,
         sslMode: SslMode.disable,
       ),
     );
