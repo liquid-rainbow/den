@@ -22,6 +22,7 @@ class _CreateEventLocationScreenState
   late TextEditingController _searchController;
   late TextEditingController _manualLinkController;
   late final MapController _mapController;
+  EventVenueVisibility _venueVisibility = EventVenueVisibility.alwaysVisible;
 
   double _currentLat = 28.7041;
   double _currentLng = 77.1025;
@@ -85,6 +86,7 @@ class _CreateEventLocationScreenState
         : 'Detecting closest venue...';
     _searchController = TextEditingController(text: _selectedVenueName);
     _manualLinkController = TextEditingController(text: draft.googleMapsUrl ?? '');
+    _venueVisibility = draft.venueVisibility;
     _sortedVenues = List.from(_curatedVenues);
 
     _initUserGpsLocation();
@@ -289,6 +291,7 @@ class _CreateEventLocationScreenState
           googleMapsUrl: _manualLinkController.text.trim().isNotEmpty
               ? _manualLinkController.text.trim()
               : null,
+          venueVisibility: _venueVisibility,
         );
     context.push('/organizer/events/create/audience');
   }
@@ -725,6 +728,36 @@ class _CreateEventLocationScreenState
                 ),
               ],
 
+              const SizedBox(height: 24),
+              // Venue Visibility Section
+              const Text(
+                'Venue Visibility',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: OrganizerColors.onSurface,
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'For your privacy, the venue location is hidden until a guest books a ticket.',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF6B7280),
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildVisibilityOption(
+                title: 'Always visible',
+                value: EventVenueVisibility.alwaysVisible,
+              ),
+              const SizedBox(height: 10),
+              _buildVisibilityOption(
+                title: 'After ticket is booked',
+                value: EventVenueVisibility.afterTicketBooked,
+              ),
+
               const SizedBox(height: 36),
 
               // Continue Button
@@ -761,6 +794,63 @@ class _CreateEventLocationScreenState
               const SizedBox(height: 24),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVisibilityOption({
+    required String title,
+    required EventVenueVisibility value,
+  }) {
+    final isSelected = _venueVisibility == value;
+    return GestureDetector(
+      onTap: () => setState(() => _venueVisibility = value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: isSelected ? OrganizerColors.primary.withValues(alpha: 0.05) : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSelected ? OrganizerColors.primary : OrganizerColors.surfaceContainerHigh,
+            width: isSelected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                color: isSelected ? OrganizerColors.primary : OrganizerColors.onSurface,
+              ),
+            ),
+            Container(
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isSelected ? OrganizerColors.primary : const Color(0xFF9CA3AF),
+                  width: 2,
+                ),
+              ),
+              child: isSelected
+                  ? Center(
+                      child: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: const BoxDecoration(
+                          color: OrganizerColors.primary,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    )
+                  : null,
+            ),
+          ],
         ),
       ),
     );

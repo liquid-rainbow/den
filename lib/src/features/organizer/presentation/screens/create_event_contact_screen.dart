@@ -57,7 +57,7 @@ class _CreateEventContactScreenState
             children: [
               const SizedBox(height: 12),
               const Text(
-                'Contact Information',
+                'Your contact details',
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.w800,
@@ -66,56 +66,39 @@ class _CreateEventContactScreenState
                   letterSpacing: -0.5,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               const Text(
-                'How can guests contact you for event related questions?',
+                'We promise not to show it to anyone except when guests pay for your event or you manually approve their joining request.',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                   color: OrganizerColors.onSurfaceVariant,
+                  height: 1.4,
                 ),
               ),
-              const SizedBox(height: 6),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: OrganizerColors.primary.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Text(
-                  'Your details are only visible after someone buys your ticket.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: OrganizerColors.primary,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 32),
 
-              // Textarea
+              // Text Field
               Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: OrganizerColors.surfaceContainerHigh),
                 ),
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 child: TextField(
                   controller: _contactController,
-                  maxLines: 5,
+                  keyboardType: TextInputType.phone,
                   style: const TextStyle(
-                    fontSize: 15,
+                    fontSize: 16,
                     fontWeight: FontWeight.w600,
                     color: OrganizerColors.onSurface,
                   ),
                   decoration: const InputDecoration(
                     border: InputBorder.none,
-                    hintText:
-                        'e.g. WhatsApp group link: chat.whatsapp.com/xyz or +91 98765 43210',
+                    hintText: 'Phone Number',
                     hintStyle: TextStyle(
-                      fontSize: 14,
+                      fontSize: 15,
                       color: Color(0xFF9CA3AF),
                     ),
                   ),

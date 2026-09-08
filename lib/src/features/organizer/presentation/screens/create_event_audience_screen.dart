@@ -18,6 +18,9 @@ class _CreateEventAudienceScreenState
     extends ConsumerState<CreateEventAudienceScreen> {
   late EventExclusivity _exclusivity;
   late TextEditingController _capacityController;
+  late TextEditingController _capacityBoysController;
+  late TextEditingController _capacityGirlsController;
+  late TextEditingController _capacityNonBinaryController;
   late EventGenderRequirement _genderRequirement;
   late bool _requireInstagram;
   late bool _alcoholAvailable;
@@ -30,7 +33,16 @@ class _CreateEventAudienceScreenState
     final draft = ref.read(createEventProvider);
     _exclusivity = draft.exclusivity;
     _capacityController = TextEditingController(
-      text: draft.capacity != null ? draft.capacity.toString() : 'no limit',
+      text: draft.capacity != null ? draft.capacity.toString() : '',
+    );
+    _capacityBoysController = TextEditingController(
+      text: draft.capacityByGender?.men != null ? draft.capacityByGender!.men.toString() : '',
+    );
+    _capacityGirlsController = TextEditingController(
+      text: draft.capacityByGender?.women != null ? draft.capacityByGender!.women.toString() : '',
+    );
+    _capacityNonBinaryController = TextEditingController(
+      text: draft.capacityByGender?.nonBinary != null ? draft.capacityByGender!.nonBinary.toString() : '',
     );
     _genderRequirement = draft.genderRequirement;
     _requireInstagram = draft.requireInstagram;
@@ -42,19 +54,34 @@ class _CreateEventAudienceScreenState
   @override
   void dispose() {
     _capacityController.dispose();
+    _capacityBoysController.dispose();
+    _capacityGirlsController.dispose();
+    _capacityNonBinaryController.dispose();
     super.dispose();
   }
 
   void _onContinue() {
-    final capText = _capacityController.text.trim().toLowerCase();
-    final cap = (capText == 'no limit' || capText.isEmpty)
-        ? null
-        : int.tryParse(capText);
+    final capText = _capacityController.text.trim();
+    final cap = capText.isEmpty ? null : int.tryParse(capText);
+    
+    final boysText = _capacityBoysController.text.trim();
+    final girlsText = _capacityGirlsController.text.trim();
+    final nbText = _capacityNonBinaryController.text.trim();
+    
+    CapacityByGender? capacityByGender;
+    if (boysText.isNotEmpty || girlsText.isNotEmpty || nbText.isNotEmpty) {
+      capacityByGender = CapacityByGender(
+        men: int.tryParse(boysText) ?? 0,
+        women: int.tryParse(girlsText) ?? 0,
+        nonBinary: int.tryParse(nbText) ?? 0,
+      );
+    }
 
     ref.read(createEventProvider.notifier).updateAudienceSettings(
           exclusivity: _exclusivity,
           capacity: cap,
           clearCapacity: cap == null,
+          capacityByGender: capacityByGender,
           genderRequirement: _genderRequirement,
           requireInstagram: _requireInstagram,
           alcoholAvailable: _alcoholAvailable,
@@ -63,6 +90,18 @@ class _CreateEventAudienceScreenState
         );
 
     context.push('/organizer/events/create/pricing');
+  }
+
+  void _showGenderSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => GenderSelectionSheet(
+        initialSelection: _genderRequirement,
+        onSelected: (val) => setState(() => _genderRequirement = val),
+      ),
+    );
   }
 
   @override
@@ -135,9 +174,47 @@ class _CreateEventAudienceScreenState
               ),
               const SizedBox(height: 28),
 
+              // Open To? Filter Dropdown
+              const Text(
+                'Open to?',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: OrganizerColors.onSurface,
+                ),
+              ),
+              const SizedBox(height: 8),
+              InkWell(
+                onTap: _showGenderSheet,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: OrganizerColors.surfaceContainerHigh),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        _genderRequirement.label,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: OrganizerColors.onSurface,
+                        ),
+                      ),
+                      const Icon(Icons.keyboard_arrow_down,
+                          color: OrganizerColors.onSurfaceVariant),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              
               // Capacity Section
               const Text(
-                'What is the capacity of your den?',
+                'Total capacity',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
@@ -154,18 +231,12 @@ class _CreateEventAudienceScreenState
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.people_outline,
-                        color: OrganizerColors.onSurfaceVariant),
-                    const SizedBox(width: 12),
-                    Container(
-                      width: 1,
-                      height: 24,
-                      color: OrganizerColors.outlineVariant,
-                    ),
+                    const Icon(Icons.people_outline, color: OrganizerColors.onSurfaceVariant),
                     const SizedBox(width: 12),
                     Expanded(
                       child: TextField(
                         controller: _capacityController,
+                        keyboardType: TextInputType.number,
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
@@ -173,7 +244,7 @@ class _CreateEventAudienceScreenState
                         ),
                         decoration: const InputDecoration(
                           border: InputBorder.none,
-                          hintText: 'no limit',
+                          hintText: 'No limit',
                           hintStyle: TextStyle(
                             fontSize: 15,
                             color: OrganizerColors.outline,
@@ -185,55 +256,102 @@ class _CreateEventAudienceScreenState
                 ),
               ),
               const SizedBox(height: 16),
-
-              // Open To? Gender Selector Card
-              InkWell(
-                onTap: () async {
-                  final chosen = await GenderSelectionSheet.show(
-                    context,
-                    current: _genderRequirement,
-                  );
-                  if (chosen != null) {
-                    setState(() => _genderRequirement = chosen);
-                  }
-                },
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                  decoration: BoxDecoration(
-                    color: OrganizerColors.surfaceContainer,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: OrganizerColors.surfaceContainerHigh),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.person_outline,
-                          color: OrganizerColors.onSurface),
-                      const SizedBox(width: 12),
-                      const Text(
-                        'Open to?',
-                        style: TextStyle(
-                          fontSize: 15,
+              
+              const Text(
+                'Capacity by gender',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: OrganizerColors.onSurface,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: OrganizerColors.surfaceContainer,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: OrganizerColors.surfaceContainerHigh),
+                      ),
+                      child: TextField(
+                        controller: _capacityBoysController,
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(
+                          fontSize: 16,
                           fontWeight: FontWeight.w700,
                           color: OrganizerColors.onSurface,
                         ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        _genderRequirement.label,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: OrganizerColors.onSurfaceVariant,
+                        decoration: const InputDecoration(
+                          border: InputBorder.none,
+                          hintText: 'Boys',
+                          hintStyle: TextStyle(
+                            fontSize: 15,
+                            color: OrganizerColors.outline,
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 4),
-                      const Icon(Icons.keyboard_arrow_down,
-                          size: 20, color: OrganizerColors.onSurfaceVariant),
-                    ],
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: OrganizerColors.surfaceContainer,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: OrganizerColors.surfaceContainerHigh),
+                      ),
+                      child: TextField(
+                        controller: _capacityGirlsController,
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: OrganizerColors.onSurface,
+                        ),
+                        decoration: const InputDecoration(
+                          border: InputBorder.none,
+                          hintText: 'Girls',
+                          hintStyle: TextStyle(
+                            fontSize: 15,
+                            color: OrganizerColors.outline,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: OrganizerColors.surfaceContainer,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: OrganizerColors.surfaceContainerHigh),
+                      ),
+                      child: TextField(
+                        controller: _capacityNonBinaryController,
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: OrganizerColors.onSurface,
+                        ),
+                        decoration: const InputDecoration(
+                          border: InputBorder.none,
+                          hintText: 'Non-binary',
+                          hintStyle: TextStyle(
+                            fontSize: 12,
+                            color: OrganizerColors.outline,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 24),
 
@@ -520,4 +638,5 @@ class _CreateEventAudienceScreenState
       ),
     );
   }
+
 }

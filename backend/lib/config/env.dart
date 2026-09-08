@@ -14,6 +14,10 @@ class Env {
       _dbUser = dotenv['DB_USER'] ?? _dbUser;
       _dbPassword = dotenv['DB_PASSWORD'] ?? _dbPassword;
       _dbPoolSize = int.tryParse(dotenv['DB_POOL_SIZE'] ?? '') ?? _dbPoolSize;
+      
+      _twilioAccountSid = dotenv['TWILIO_ACCOUNT_SID'] ?? _twilioAccountSid;
+      _twilioAuthToken = dotenv['TWILIO_AUTH_TOKEN'] ?? _twilioAuthToken;
+      _twilioFromNumber = dotenv['TWILIO_FROM_NUMBER'] ?? _twilioFromNumber;
     }
     
     if (_dbPoolSize <= 0) {
@@ -31,6 +35,10 @@ class Env {
   static String _dbPassword = Platform.environment['DB_PASSWORD'] ?? 'postgres';
   static int _dbPoolSize = int.tryParse(Platform.environment['DB_POOL_SIZE'] ?? '') ?? 10;
 
+  static String _twilioAccountSid = Platform.environment['TWILIO_ACCOUNT_SID'] ?? '';
+  static String _twilioAuthToken = Platform.environment['TWILIO_AUTH_TOKEN'] ?? '';
+  static String _twilioFromNumber = Platform.environment['TWILIO_FROM_NUMBER'] ?? '';
+
   static String get environment => _environment;
   static bool get isProduction => _environment.toLowerCase() == 'production';
   static int get port => _port;
@@ -41,4 +49,8 @@ class Env {
   static String get dbUser => _dbUser;
   static String get dbPassword => _dbPassword;
   static int get dbPoolSize => _dbPoolSize;
+
+  static String get twilioAccountSid => _twilioAccountSid;
+  static String get twilioAuthToken => _twilioAuthToken;
+  static String get twilioFromNumber => _twilioFromNumber;
 }

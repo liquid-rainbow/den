@@ -27,8 +27,8 @@ enum EventExclusivity {
 
 enum EventGenderRequirement {
   all('All genders'),
-  men('Men only'),
-  women('Women only'),
+  men('Men'),
+  women('Women'),
   nonBinary('Non-binary');
 
   final String label;
@@ -44,6 +44,37 @@ enum EventPricingType {
   final String description;
 
   const EventPricingType(this.label, this.description);
+}
+
+enum EventLocationMode {
+  searchedAddress,
+  housePartyMapLink,
+}
+
+enum EventVenueVisibility {
+  alwaysVisible,
+  afterTicketBooked,
+}
+
+@immutable
+class CapacityByGender {
+  final int men;
+  final int women;
+  final int nonBinary;
+
+  const CapacityByGender({
+    this.men = 0,
+    this.women = 0,
+    this.nonBinary = 0,
+  });
+
+  CapacityByGender copyWith({int? men, int? women, int? nonBinary}) {
+    return CapacityByGender(
+      men: men ?? this.men,
+      women: women ?? this.women,
+      nonBinary: nonBinary ?? this.nonBinary,
+    );
+  }
 }
 
 enum DiscountType {
@@ -126,8 +157,11 @@ class CreateEventDraft {
   final String venueName;
   final String venueAddress;
   final String? googleMapsUrl;
+  final EventLocationMode locationMode;
+  final EventVenueVisibility venueVisibility;
   final EventExclusivity exclusivity;
   final int? capacity; // null = no limit
+  final CapacityByGender? capacityByGender;
   final EventGenderRequirement genderRequirement;
   final bool requireInstagram;
   final bool requireVerification;
@@ -151,8 +185,11 @@ class CreateEventDraft {
     this.venueName = 'Vijay Nagar',
     this.venueAddress = 'Vijay Nagar, Delhi, 110009, India',
     this.googleMapsUrl,
+    this.locationMode = EventLocationMode.searchedAddress,
+    this.venueVisibility = EventVenueVisibility.alwaysVisible,
     this.exclusivity = EventExclusivity.approvedOnly,
     this.capacity = 270,
+    this.capacityByGender,
     this.genderRequirement = EventGenderRequirement.all,
     this.requireInstagram = false,
     this.requireVerification = false,
@@ -200,9 +237,13 @@ class CreateEventDraft {
     String? venueName,
     String? venueAddress,
     String? googleMapsUrl,
+    EventLocationMode? locationMode,
+    EventVenueVisibility? venueVisibility,
     EventExclusivity? exclusivity,
     int? capacity,
     bool clearCapacity = false,
+    CapacityByGender? capacityByGender,
+    bool clearCapacityByGender = false,
     EventGenderRequirement? genderRequirement,
     bool? requireInstagram,
     bool? requireVerification,
@@ -226,8 +267,11 @@ class CreateEventDraft {
       venueName: venueName ?? this.venueName,
       venueAddress: venueAddress ?? this.venueAddress,
       googleMapsUrl: googleMapsUrl ?? this.googleMapsUrl,
+      locationMode: locationMode ?? this.locationMode,
+      venueVisibility: venueVisibility ?? this.venueVisibility,
       exclusivity: exclusivity ?? this.exclusivity,
       capacity: clearCapacity ? null : (capacity ?? this.capacity),
+      capacityByGender: clearCapacityByGender ? null : (capacityByGender ?? this.capacityByGender),
       genderRequirement: genderRequirement ?? this.genderRequirement,
       requireInstagram: requireInstagram ?? this.requireInstagram,
       requireVerification: requireVerification ?? this.requireVerification,

@@ -16,11 +16,13 @@ class CreateEventPricingScreen extends ConsumerStatefulWidget {
 class _CreateEventPricingScreenState
     extends ConsumerState<CreateEventPricingScreen> {
   late EventPricingType _pricingType;
+  final Set<String> _editingTiers = {};
 
   @override
   void initState() {
     super.initState();
-    _pricingType = ref.read(createEventProvider).pricingType;
+    final draft = ref.read(createEventProvider);
+    _pricingType = draft.pricingType;
   }
 
   void _onContinue() {
@@ -39,126 +41,19 @@ class _CreateEventPricingScreenState
       quantityLimit: 100,
     );
     ref.read(createEventProvider.notifier).addTicketTier(newTier);
+    setState(() {
+      _editingTiers.add(newTier.id);
+    });
   }
 
-  void _showEditPriceDialog(EventTicketTier tier) {
-    final controller =
-        TextEditingController(text: tier.price.toStringAsFixed(0));
-    final nameController = TextEditingController(text: tier.name);
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
-          'Edit Ticket Tier',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-            color: OrganizerColors.onSurface,
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Tier Name',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: OrganizerColors.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 6),
-            TextField(
-              controller: nameController,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1C1B1B),
-              ),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: OrganizerColors.surfaceContainerLow,
-                hintText: 'Ticket Name',
-                hintStyle: const TextStyle(color: Color(0xFF9CA3AF)),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Base Price (₹)',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: OrganizerColors.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 6),
-            TextField(
-              controller: controller,
-              keyboardType: TextInputType.number,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF1C1B1B),
-              ),
-              decoration: InputDecoration(
-                prefixText: '₹ ',
-                prefixStyle: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF1C1B1B),
-                ),
-                filled: true,
-                fillColor: OrganizerColors.surfaceContainerLow,
-                hintText: '400',
-                hintStyle: const TextStyle(color: Color(0xFF9CA3AF)),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final newPrice =
-                  double.tryParse(controller.text.trim()) ?? tier.price;
-              final newName = nameController.text.trim().isNotEmpty
-                  ? nameController.text.trim()
-                  : tier.name;
-              ref.read(createEventProvider.notifier).updateTicketTier(
-                    tier.copyWith(price: newPrice, name: newName),
-                  );
-              Navigator.pop(ctx);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: OrganizerColors.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-            ),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
+  void _toggleEditTier(String id) {
+    setState(() {
+      if (_editingTiers.contains(id)) {
+        _editingTiers.remove(id);
+      } else {
+        _editingTiers.add(id);
+      }
+    });
   }
 
   void _roundOffTier(EventTicketTier tier, double roundTarget) {
@@ -238,6 +133,50 @@ class _CreateEventPricingScreenState
                 icon: Icons.confirmation_number_outlined,
               ),
               const SizedBox(height: 28),
+
+              if (_pricingType == EventPricingType.free) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: OrganizerColors.surfaceContainer,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: OrganizerColors.surfaceContainerHigh),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Requires Host Approval',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: OrganizerColors.onSurface,
+                              ),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              'You must approve guests before they can join.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF6B7280),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Switch(
+                        value: _requiresHostApproval,
+                        onChanged: (val) => setState(() => _requiresHostApproval = val),
+                        activeThumbColor: OrganizerColors.primary,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
 
               if (_pricingType == EventPricingType.paid) ...[
                 // Ticket Tiers Section Header
@@ -614,6 +553,124 @@ class _CreateEventPricingScreenState
   }
 
   Widget _buildTicketTierCard(EventTicketTier tier) {
+    final isEditing = _editingTiers.contains(tier.id);
+    
+    if (isEditing) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: OrganizerColors.primary.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: OrganizerColors.primary),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Edit Ticket Tier',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: OrganizerColors.onSurface,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 20),
+                  onPressed: () => _toggleEditTier(tier.id),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            const Text('Ticket Name', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: OrganizerColors.onSurfaceVariant)),
+            const SizedBox(height: 6),
+            TextFormField(
+              initialValue: tier.name,
+              onChanged: (val) {
+                ref.read(createEventProvider.notifier).updateTicketTier(tier.copyWith(name: val));
+              },
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text('Price (₹)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: OrganizerColors.onSurfaceVariant)),
+            const SizedBox(height: 6),
+            TextFormField(
+              initialValue: tier.price.toStringAsFixed(0),
+              keyboardType: TextInputType.number,
+              onChanged: (val) {
+                final newPrice = double.tryParse(val);
+                if (newPrice != null) {
+                  ref.read(createEventProvider.notifier).updateTicketTier(tier.copyWith(price: newPrice));
+                }
+              },
+              decoration: InputDecoration(
+                prefixText: '₹ ',
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text('Limit Total Tickets Available', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: OrganizerColors.onSurface)),
+                ),
+                Switch(
+                  value: tier.isLimited,
+                  onChanged: (val) {
+                    ref.read(createEventProvider.notifier).updateTicketTier(tier.copyWith(isLimited: val));
+                  },
+                  activeThumbColor: OrganizerColors.primary,
+                ),
+              ],
+            ),
+            if (tier.isLimited) ...[
+              const SizedBox(height: 6),
+              TextFormField(
+                initialValue: tier.quantityLimit?.toString() ?? '',
+                keyboardType: TextInputType.number,
+                onChanged: (val) {
+                  ref.read(createEventProvider.notifier).updateTicketTier(tier.copyWith(quantityLimit: int.tryParse(val)));
+                },
+                decoration: InputDecoration(
+                  hintText: 'e.g. 100',
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => _toggleEditTier(tier.id),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: OrganizerColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('Done', style: TextStyle(fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -635,7 +692,7 @@ class _CreateEventPricingScreenState
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               InkWell(
-                onTap: () => _showEditPriceDialog(tier),
+                onTap: () => _toggleEditTier(tier.id),
                 borderRadius: BorderRadius.circular(8),
                 child: Row(
                   children: [
@@ -699,7 +756,7 @@ class _CreateEventPricingScreenState
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               InkWell(
-                onTap: () => _showEditPriceDialog(tier),
+                onTap: () => _toggleEditTier(tier.id),
                 child: Text(
                   '₹${tier.price.toStringAsFixed(0)}',
                   style: const TextStyle(

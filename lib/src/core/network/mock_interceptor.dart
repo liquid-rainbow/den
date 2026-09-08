@@ -60,51 +60,8 @@ class MockInterceptor extends Interceptor {
     
 
     // --- Home Feed Mock Endpoints ---
-    if (options.path == '/api/home/feed') {
-      final radius = int.tryParse(options.queryParameters['radius']?.toString() ?? '50') ?? 50;
-      
-      // We simulate filtering by radius by dropping an event if radius is too small
-      final allEvents = [
-        {
-          'title': 'Rooftop Neon House Party',
-          'dateStr': "12 Oct '24",
-          'timeStr': '9:00 PM',
-          'locationStr': 'Mission District',
-          'joinedCountText': '+42',
-          'statsText': '45 Joined • 15 Spots Left',
-          'imageUrl': 'https://images.unsplash.com/photo-1566737236500-c8ac43014a67?auto=format&fit=crop&w=1200&q=80',
-          'distanceKm': 12,
-        },
-        {
-          'title': 'Underground Warehouse Rave',
-          'dateStr': "18 Oct '24",
-          'timeStr': '11:00 PM',
-          'locationStr': 'SOMA',
-          'joinedCountText': '+120',
-          'statsText': '122 Joined • 8 Spots Left',
-          'imageUrl': 'https://images.unsplash.com/photo-1540039155732-68ee23e15b51?auto=format&fit=crop&w=1200&q=80',
-          'distanceKm': 25,
-        },
-        {
-          'title': 'Beach Bonfire Social',
-          'dateStr': "25 Oct '24",
-          'timeStr': '7:00 PM',
-          'locationStr': 'Ocean Beach',
-          'joinedCountText': '+80',
-          'statsText': '85 Joined • 20 Spots Left',
-          'imageUrl': 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=1200&q=80',
-          'distanceKm': 40,
-        },
-      ];
+    // Removed: /api/home/feed now hits the real backend
 
-      final filteredEvents = allEvents.where((e) => (e['distanceKm'] as int) <= radius).toList();
-
-      return handler.resolve(Response(
-        requestOptions: options,
-        statusCode: 200,
-        data: {'events': filteredEvents},
-      ));
-    }
     // --- Chats Mock Endpoints ---
     if (options.path == '/api/chats') {
       return handler.resolve(Response(requestOptions: options, statusCode: 200, data: {

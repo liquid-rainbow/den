@@ -548,30 +548,34 @@ class CreateEventRecapScreen extends ConsumerWidget {
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton.icon(
-                  onPressed: () {
-                    final createdEvent = ref
-                        .read(createEventProvider.notifier)
-                        .publishEvent();
+                  onPressed: () async {
+                    try {
+                      final createdEvent = await ref
+                          .read(createEventProvider.notifier)
+                          .publishEvent();
 
-                    EventEditorialTicketDialog.show(
-                      context,
-                      event: createdEvent,
-                      organizerName: organizer?.name ?? 'Organizer',
-                      organizerAvatarUrl: organizer?.avatarUrl ?? '',
-                    );
+                      if (!context.mounted) return;
+                      EventEditorialTicketDialog.show(
+                        context,
+                        event: createdEvent,
+                        organizerName: organizer?.name ?? 'Organizer',
+                        organizerAvatarUrl: organizer?.avatarUrl ?? '',
+                      );
 
-                    context.go('/organizer/profile');
+                      context.go('/organizer/profile');
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(e.toString()),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
                   },
-                  icon: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF4ADE80),
-                      shape: BoxShape.circle,
-                    ),
-                  ),
+                  icon: const Icon(Icons.rocket_launch, size: 18),
                   label: const Text(
-                    'Publish Event',
+                    'Publish Den',
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w800,

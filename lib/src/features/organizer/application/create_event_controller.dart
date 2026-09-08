@@ -2,6 +2,8 @@ import 'package:den/src/features/organizer/application/organizer_events_controll
 import 'package:den/src/features/organizer/domain/models/create_event_draft.dart';
 import 'package:den/src/features/organizer/domain/models/organizer_event.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
+import '../../../core/network/dio_provider.dart';
 
 class CreateEventNotifier extends Notifier<CreateEventDraft> {
   @override
@@ -40,11 +42,15 @@ class CreateEventNotifier extends Notifier<CreateEventDraft> {
     String? venueName,
     String? venueAddress,
     String? googleMapsUrl,
+    EventLocationMode? locationMode,
+    EventVenueVisibility? venueVisibility,
   }) {
     state = state.copyWith(
       venueName: venueName,
       venueAddress: venueAddress,
       googleMapsUrl: googleMapsUrl,
+      locationMode: locationMode,
+      venueVisibility: venueVisibility,
     );
   }
 
@@ -52,6 +58,8 @@ class CreateEventNotifier extends Notifier<CreateEventDraft> {
     EventExclusivity? exclusivity,
     int? capacity,
     bool clearCapacity = false,
+    CapacityByGender? capacityByGender,
+    bool clearCapacityByGender = false,
     EventGenderRequirement? genderRequirement,
     bool? requireInstagram,
     bool? requireVerification,
@@ -63,6 +71,8 @@ class CreateEventNotifier extends Notifier<CreateEventDraft> {
       exclusivity: exclusivity,
       capacity: capacity,
       clearCapacity: clearCapacity,
+      capacityByGender: capacityByGender,
+      clearCapacityByGender: clearCapacityByGender,
       genderRequirement: genderRequirement,
       requireInstagram: requireInstagram,
       requireVerification: requireVerification,
@@ -125,8 +135,7 @@ class CreateEventNotifier extends Notifier<CreateEventDraft> {
     state = state.copyWith(galleryUrls: updated);
   }
 
-  OrganizerEvent publishEvent() {
-    final eventId = 'evt_${DateTime.now().millisecondsSinceEpoch}';
+  Future<OrganizerEvent> publishEvent() async {
     final eventDate = state.date ?? DateTime.now();
     final months = [
       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -134,42 +143,105 @@ class CreateEventNotifier extends Notifier<CreateEventDraft> {
     ];
     final monthShort = months[eventDate.month - 1];
     final dayNumber = eventDate.day.toString();
-    final dateLabel = '$dayNumber $monthShort \'${eventDate.year.toString().substring(2)}';
+    final dateLabel = '$dayNumber $monthShort \\'${eventDate.year.toString().substring(2)}';
     final timeRange = state.endTime != null ? '${state.startTime} - ${state.endTime}' : state.startTime;
 
-    final newEvent = OrganizerEvent(
-      id: eventId,
-      title: state.title.isNotEmpty ? state.title : '${state.category.label} Gathering',
-      dateLabel: dateLabel,
-      monthShort: monthShort,
-      dayNumber: dayNumber,
-      timeRange: timeRange,
-      venueName: state.venueName.isNotEmpty ? state.venueName : 'Private Venue',
-      venueAddress: state.venueAddress.isNotEmpty ? state.venueAddress : 'New Delhi, India',
-      imageUrl: state.bannerUrl,
-      ticketsSold: 0,
-      ticketsTotal: state.capacity ?? 200,
-      grossRevenue: 0.0,
-      netEarnings: 0.0,
-      platformFeePercent: 5.0,
-      femaleDemographicPercent: 50,
-      maleDemographicPercent: 45,
-      otherDemographicPercent: 5,
-      firstTimerPercent: 100,
-      returningPercent: 0,
-      attendedCount: 0,
-      isUpcoming: true,
-    );
+    // Build the payload expected by POST /api/events
+    final payload = {
+      'title': state.title.isNotEmpty ? state.title : '${state.category.label} Gathering',
+      'category': state.category.name,
+      'description': state.description,
+      'bannerUrl': state.bannerUrl,
+      'galleryUrls': state.galleryUrls,
+      'date': state.date?.toIso8601String(),
+      'startTime': state.startTime,
+      'endTime': state.endTime,
+      'venueName': state.venueName.isNotEmpty ? state.venueName : 'Private Venue',
+      'venueAddress': state.venueAddress.isNotEmpty ? state.venueAddress : 'New Delhi, India',
+      'latitude': state.location?.latitude,
+      'longitude': state.location?.longitude,
+      'locationMode': 'searchedAddress', // Assuming from draft or default
+      'venueVisibility': state.venueVisibility == VenueVisibility.alwaysVisible ? 'alwaysVisible' : 'approvedOnly',
+      'exclusivity': 'approvedOnly', // Hardcoded as per default or state
+      'capacity': state.capacity,
+      'capacityByGender': {
+        'men': state.genderCapacity[Gender.male],
+        'women': state.genderCapacity[Gender.female],
+        'nonBinary': state.genderCapacity[Gender.nonBinary],
+      },
+      'genderRequirement': state.openTo == OpenToRequirement.everyone ? 'all' : (state.openTo == OpenToRequirement.womenOnly ? 'womenOnly' : 'couplesOnly'),
+      'requireInstagram': state.requireInstagram,
+      'requireFaceVerification': state.requireVerification,
+      'alcoholAvailable': true,
+      'allowCancellation': false,
+      'searchEngineVisible': true,
+      'contactInfo': state.contactInfo,
+      'pricingType': state.pricingType == PricingType.paid ? 'paid' : (state.pricingType == PricingType.free ? 'free' : 'splitBill'),
+      'status': 'published',
+      'ticketTiers': state.ticketTiers.map((t) => {
+        'name': t.name,
+        'badge': 'SINGLE',
+        'note': t.note,
+        'price': t.price,
+        'isLimited': t.isLimited,
+        'quantityLimit': t.quantity,
+      }).toList(),
+      'coupons': state.coupons.map((c) => {
+        'code': c.code,
+        'type': c.discountType == DiscountType.percentage ? 'percentage' : 'fixed',
+        'value': c.value,
+        'usageLimit': c.usageLimit,
+      }).toList(),
+    };
 
-    ref.read(organizerEventsProvider.notifier).addEvent(newEvent);
+    final dio = ref.read(dioProvider);
+    try {
+      final response = await dio.post('/api/events', data: payload);
+      if (response.data['success'] != true) {
+        throw Exception(response.data['message'] ?? 'Failed to publish event');
+      }
+      
+      final eventId = response.data['event']['id'] as String;
 
-    // Reset draft
-    final tomorrow = DateTime.now().add(const Duration(days: 1));
-    state = CreateEventDraft(
-      date: DateTime(tomorrow.year, tomorrow.month, tomorrow.day),
-    );
+      final newEvent = OrganizerEvent(
+        id: eventId,
+        title: payload['title'] as String,
+        dateLabel: dateLabel,
+        monthShort: monthShort,
+        dayNumber: dayNumber,
+        timeRange: timeRange,
+        venueName: payload['venueName'] as String,
+        venueAddress: payload['venueAddress'] as String,
+        imageUrl: payload['bannerUrl'] as String?,
+        ticketsSold: 0,
+        ticketsTotal: state.capacity ?? 200,
+        grossRevenue: 0.0,
+        netEarnings: 0.0,
+        platformFeePercent: 5.0,
+        femaleDemographicPercent: 50,
+        maleDemographicPercent: 45,
+        otherDemographicPercent: 5,
+        firstTimerPercent: 100,
+        returningPercent: 0,
+        attendedCount: 0,
+        isUpcoming: true,
+      );
 
-    return newEvent;
+      ref.read(organizerEventsProvider.notifier).addEvent(newEvent);
+
+      // Reset draft
+      final tomorrow = DateTime.now().add(const Duration(days: 1));
+      state = CreateEventDraft(
+        date: DateTime(tomorrow.year, tomorrow.month, tomorrow.day),
+      );
+
+      return newEvent;
+    } on DioException catch (e) {
+      final msg = e.response?.data['message'] ?? e.message ?? 'Network error';
+      throw Exception(msg);
+    } catch (e) {
+      throw Exception('Failed to publish event: $e');
+    }
   }
 }
 

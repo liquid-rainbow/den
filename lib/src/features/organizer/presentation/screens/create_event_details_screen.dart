@@ -79,9 +79,9 @@ class _CreateEventDetailsScreenState
           icon: const Icon(Icons.arrow_back, color: OrganizerColors.onSurface),
           onPressed: () => context.pop(),
         ),
-        title: const Text(
-          'Event Details',
-          style: TextStyle(
+        title: Text(
+          '${draft.category.label} Details',
+          style: const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
             color: OrganizerColors.onSurface,
@@ -96,9 +96,9 @@ class _CreateEventDetailsScreenState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Upload a banner image',
+                'upload a banner image',
                 style: TextStyle(
-                  fontSize: 20,
+                  fontSize: 14,
                   fontWeight: FontWeight.w800,
                   color: OrganizerColors.onSurface,
                 ),
@@ -124,65 +124,82 @@ class _CreateEventDetailsScreenState
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      if (_pickedBannerUrl != null &&
-                          _pickedBannerUrl!.isNotEmpty)
-                        Opacity(
-                          opacity: 0.85,
-                          child: _pickedBannerUrl!.startsWith('http')
-                              ? Image.network(
-                                  _pickedBannerUrl!,
-                                  width: double.infinity,
-                                  height: double.infinity,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) =>
-                                      const SizedBox.shrink(),
-                                )
-                              : Image.file(
-                                  File(_pickedBannerUrl!),
-                                  width: double.infinity,
-                                  height: double.infinity,
-                                  fit: BoxFit.cover,
-                                ),
+                      if (_pickedBannerUrl != null && _pickedBannerUrl!.isNotEmpty) ...[
+                        Positioned.fill(
+                          child: Opacity(
+                            opacity: 0.85,
+                            child: _pickedBannerUrl!.startsWith('http')
+                                ? Image.network(
+                                    _pickedBannerUrl!,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) =>
+                                        const SizedBox.shrink(),
+                                  )
+                                : Image.file(
+                                    File(_pickedBannerUrl!),
+                                    fit: BoxFit.cover,
+                                  ),
+                          ),
                         ),
-                      Container(
-                        color: Colors.black.withValues(alpha: 0.15),
-                      ),
-                      Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
+                        // Edit pencil icon in bottom right
+                        Positioned(
+                          bottom: 12,
+                          right: 12,
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
                             decoration: const BoxDecoration(
-                              color: Colors.white,
+                              color: OrganizerColors.primary,
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
-                              Icons.add_photo_alternate_outlined,
-                              size: 28,
-                              color: OrganizerColors.primary,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Upload Banner Image',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
+                              Icons.edit,
                               color: Colors.white,
-                              shadows: [Shadow(blurRadius: 4, color: Colors.black45)],
+                              size: 18,
                             ),
                           ),
-                          const SizedBox(height: 2),
-                          const Text(
-                            'Recommended: 1200x600px',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.white70,
+                        ),
+                      ],
+                      if (_pickedBannerUrl == null || _pickedBannerUrl!.isEmpty) ...[
+                        Container(
+                          color: Colors.black.withValues(alpha: 0.15),
+                        ),
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.add_photo_alternate_outlined,
+                                size: 28,
+                                color: OrganizerColors.primary,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Upload Banner Image',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                                shadows: [Shadow(blurRadius: 4, color: Colors.black45)],
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            const Text(
+                              'Recommended: 1200x600px',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.white70,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),

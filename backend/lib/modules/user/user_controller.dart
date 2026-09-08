@@ -35,7 +35,7 @@ class UserController {
       }
     });
 
-    router.post('/onboarding', (Request request) async {
+    router.post('/me/complete-onboarding', (Request request) async {
       try {
         final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
         final user = await _userService.completeOnboarding(request, body);

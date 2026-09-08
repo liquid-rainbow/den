@@ -7,13 +7,15 @@ import 'package:den_backend/modules/auth/auth_controller.dart';
 import 'package:den_backend/modules/auth/auth_service.dart';
 import 'package:den_backend/modules/user/user_controller.dart';
 import 'package:den_backend/modules/user/user_service.dart';
+import 'package:den_backend/modules/event/event_service.dart';
+import 'package:den_backend/modules/event/event_controller.dart';
 import 'package:den_backend/shared/aws/face_verification_service.dart';
 import 'package:den_backend/shared/aws/photo_storage.dart';
 import 'package:den_backend/shared/aws/sms_sender.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as io;
 import 'package:shelf_router/shelf_router.dart';
-void main() async {
+void main() async {
   Env.load();
 
   // Initialize Database Pool
@@ -21,7 +23,7 @@ import 'package:shelf_router/shelf_router.dart';
 
   // Dependency Injection: AWS Interfaces & Stub Implementations
   final SmsSender smsSender = Env.isProduction 
-      ? throw UnimplementedError('Production SmsSender not yet implemented.')
+      ? TwilioSmsSender()
       : ConsoleSmsSender();
   
   final PhotoStorage photoStorage = Env.isProduction
@@ -37,6 +39,11 @@ import 'package:shelf_router/shelf_router.dart';
   final authController = AuthController(authService: authService);
   final userService = UserService();
   final userController = UserController(userService: userService);
+  final eventService = EventService();
+  final eventController = EventController(
+    eventService: eventService,
+    userService: userService,
+  );
 
   final app = Router();
 
@@ -59,7 +66,8 @@ import 'package:shelf_router/shelf_router.dart';
   // Mount Auth Router
   app.mount('/api/auth', authController.router.call);
   app.mount('/api/users', userController.router.call);
-
+  app.mount('/api/events', eventController.eventRouter.call);
+  app.mount('/api/home', eventController.homeRouter.call);
   final handler = const Pipeline()
       .addMiddleware(logRequests())
       .addHandler(app.call);
