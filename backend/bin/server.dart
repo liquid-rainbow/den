@@ -5,13 +5,16 @@ import 'package:den_backend/config/database.dart';
 import 'package:den_backend/config/env.dart';
 import 'package:den_backend/modules/auth/auth_controller.dart';
 import 'package:den_backend/modules/auth/auth_service.dart';
+import 'package:den_backend/modules/user/user_controller.dart';
+import 'package:den_backend/modules/user/user_service.dart';
+import 'package:den_backend/modules/event/event_service.dart';
+import 'package:den_backend/modules/event/event_controller.dart';
 import 'package:den_backend/shared/aws/face_verification_service.dart';
 import 'package:den_backend/shared/aws/photo_storage.dart';
 import 'package:den_backend/shared/aws/sms_sender.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as io;
 import 'package:shelf_router/shelf_router.dart';
-
 void main() async {
   Env.load();
 
@@ -19,13 +22,28 @@ void main() async {
   await Database.initialize();
 
   // Dependency Injection: AWS Interfaces & Stub Implementations
-  final SmsSender smsSender = ConsoleSmsSender();
-  final PhotoStorage photoStorage = LocalPhotoStorage();
-  final FaceVerificationService faceVerificationService = StubFaceVerificationService();
+  final SmsSender smsSender = Env.isProduction 
+      ? TwilioSmsSender()
+      : ConsoleSmsSender();
+  
+  final PhotoStorage photoStorage = Env.isProduction
+      ? throw UnimplementedError('Production PhotoStorage not yet implemented.')
+      : LocalPhotoStorage();
+      
+  final FaceVerificationService faceVerificationService = Env.isProduction
+      ? throw UnimplementedError('Production FaceVerificationService not yet implemented.')
+      : StubFaceVerificationService();
 
   // Instantiate Modules
   final authService = AuthService(smsSender: smsSender);
   final authController = AuthController(authService: authService);
+  final userService = UserService();
+  final userController = UserController(userService: userService);
+  final eventService = EventService();
+  final eventController = EventController(
+    eventService: eventService,
+    userService: userService,
+  );
 
   final app = Router();
 
@@ -47,7 +65,9 @@ void main() async {
 
   // Mount Auth Router
   app.mount('/api/auth', authController.router.call);
-
+  app.mount('/api/users', userController.router.call);
+  app.mount('/api/events', eventController.eventRouter.call);
+  app.mount('/api/home', eventController.homeRouter.call);
   final handler = const Pipeline()
       .addMiddleware(logRequests())
       .addHandler(app.call);

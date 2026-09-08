@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:den_backend/config/env.dart';
+import 'package:http/http.dart' as http;
 
 abstract class SmsSender {
   Future<void> sendOtp(String phoneNumber, String code);
@@ -29,5 +31,38 @@ class ConsoleSmsSender implements SmsSender {
       );
     }
     print('[DEV SMS STUB] Send OTP "$code" to phone "$phoneNumber"');
+  }
+}
+
+class TwilioSmsSender implements SmsSender {
+  @override
+  Future<void> sendOtp(String phoneNumber, String code) async {
+    final accountSid = Env.twilioAccountSid;
+    final authToken = Env.twilioAuthToken;
+    final fromNumber = Env.twilioFromNumber;
+
+    if (accountSid.isEmpty || authToken.isEmpty || fromNumber.isEmpty) {
+      throw StateError('Twilio credentials are not configured in environment variables.');
+    }
+
+    final url = Uri.parse('https://api.twilio.com/2010-04-01/Accounts/$accountSid/Messages.json');
+    final credentials = base64Encode(utf8.encode('$accountSid:$authToken'));
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Authorization': 'Basic $credentials',
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: {
+        'To': phoneNumber,
+        'From': fromNumber,
+        'Body': 'Your DEN verification code is $code',
+      },
+    );
+
+    if (response.statusCode != 201) {
+      throw Exception('Failed to send SMS via Twilio: ${response.statusCode} - ${response.body}');
+    }
   }
 }

@@ -79,88 +79,109 @@ class AuthService {
     final pool = Database.pool;
     final codeHash = SecurityUtils.hashSha256(cleanCode);
 
-    // Find active unverified OTP match
-    final otpResult = await pool.execute(
-      r'SELECT id FROM auth_otps WHERE phone_number = $1 AND otp_hash = $2 AND verified_at IS NULL AND expires_at > CURRENT_TIMESTAMP ORDER BY created_at DESC LIMIT 1',
-      parameters: [cleanPhone, codeHash],
-    );
-
-    if (otpResult.isEmpty) {
-      return const AuthResult(
-        success: false,
-        message: 'Invalid or expired verification code.',
-      );
-    }
-
-    final otpId = otpResult.first[0] as String;
-
-    // Mark OTP as verified
-    await pool.execute(
-      r'UPDATE auth_otps SET verified_at = CURRENT_TIMESTAMP WHERE id = $1',
-      parameters: [otpId],
-    );
-
-    // Explicit Find-or-Create user by phone_number
-    final userSelect = await pool.execute(
-      r'SELECT id, phone_number, full_name, dob, gender, height_cm, location, instagram_username, status, is_verified, created_at FROM users WHERE phone_number = $1',
-      parameters: [cleanPhone],
-    );
-
-    Map<String, dynamic> userMap;
-
-    if (userSelect.isNotEmpty) {
-      // User exists
-      final row = userSelect.first;
-      userMap = {
-        'id': row[0].toString(),
-        'phoneNumber': row[1].toString(),
-        'fullName': row[2]?.toString() ?? '',
-        'dob': row[3]?.toString() ?? '',
-        'gender': row[4]?.toString() ?? '',
-        'heightCm': row[5] != null ? (row[5] as num).toInt() : 170,
-        'location': row[6]?.toString() ?? '',
-        'instagramUsername': row[7]?.toString() ?? '',
-        'status': row[8].toString(),
-        'isVerified': row[9] as bool,
-        'createdAt': (row[10] as DateTime).toIso8601String(),
-      };
-    } else {
-      // User does NOT exist -> INSERT new user with least-privilege defaults
-      final userInsert = await pool.execute(
-        r"INSERT INTO users (phone_number, full_name, dob, gender, height_cm, location, instagram_username, status, is_verified, role) VALUES ($1, 'New RedFlag Member', '2000-01-01', 'Unspecified', 170, '', '', 'pending_verification', FALSE, 'user') RETURNING id, phone_number, full_name, dob, gender, height_cm, location, instagram_username, status, is_verified, created_at",
+    return await pool.runTx((session) async {
+      // 1. Find the latest active OTP request for the phone number with FOR UPDATE to prevent race conditions.
+      final latestOtpResult = await session.execute(
+        r'''
+        SELECT id, otp_hash, attempts
+        FROM auth_otps
+        WHERE phone_number = $1 AND verified_at IS NULL AND expires_at > CURRENT_TIMESTAMP
+        ORDER BY created_at DESC LIMIT 1
+        FOR UPDATE
+        ''',
         parameters: [cleanPhone],
       );
-      final row = userInsert.first;
-      userMap = {
-        'id': row[0].toString(),
-        'phoneNumber': row[1].toString(),
-        'fullName': row[2].toString(),
-        'dob': row[3].toString(),
-        'gender': row[4].toString(),
-        'heightCm': (row[5] as num).toInt(),
-        'location': row[6].toString(),
-        'instagramUsername': row[7].toString(),
-        'status': row[8].toString(),
-        'isVerified': row[9] as bool,
-        'createdAt': (row[10] as DateTime).toIso8601String(),
+
+      if (latestOtpResult.isEmpty) {
+        return const AuthResult(
+          success: false,
+          message: 'Invalid or expired verification code.',
+        );
+      }
+
+      final row = latestOtpResult.first;
+      final String otpId = row[0] as String;
+      final String storedHash = row[1] as String;
+      final int attempts = (row[2] as num).toInt();
+
+      if (attempts >= 5) {
+        return const AuthResult(
+          success: false,
+          message: 'Too many incorrect attempts. Please request a new code.',
+        );
+      }
+
+      if (storedHash != codeHash) {
+        // Increment attempts atomically within the lock
+        await session.execute(
+          r'UPDATE auth_otps SET attempts = attempts + 1 WHERE id = $1',
+          parameters: [otpId],
+        );
+        return const AuthResult(
+          success: false,
+          message: 'Invalid verification code.',
+        );
+      }
+
+      // 2. Code is correct. Mark as verified.
+      await session.execute(
+        r'UPDATE auth_otps SET verified_at = CURRENT_TIMESTAMP WHERE id = $1',
+        parameters: [otpId],
+      );
+
+      // 3. Find or Create user safely using ON CONFLICT to avoid race condition double-inserts.
+      final userUpsert = await session.execute(
+        r'''
+        INSERT INTO users (phone_number, full_name, dob, gender, height_cm, location, instagram_username, status, is_verified, role)
+        VALUES ($1, 'New RedFlag Member', '2000-01-01', 'Unspecified', 170, '', '', 'pending_verification', FALSE, 'user')
+        ON CONFLICT (phone_number) DO UPDATE
+        SET updated_at = CURRENT_TIMESTAMP
+        RETURNING id, phone_number, full_name, dob, gender, height_cm, location, instagram_username, status, is_verified, created_at
+        ''',
+        parameters: [cleanPhone],
+      );
+
+      final userRow = userUpsert.first;
+      final userMap = {
+        'id': userRow[0].toString(),
+        'phoneNumber': userRow[1].toString(),
+        'fullName': userRow[2]?.toString() ?? '',
+        'dob': userRow[3]?.toString() ?? '',
+        'gender': userRow[4]?.toString() ?? '',
+        'heightCm': userRow[5] != null ? (userRow[5] as num).toInt() : 170,
+        'location': userRow[6]?.toString() ?? '',
+        'instagramUsername': userRow[7]?.toString() ?? '',
+        'status': userRow[8].toString(),
+        'isVerified': userRow[9] as bool,
+        'createdAt': (userRow[10] as DateTime).toIso8601String(),
       };
-    }
 
-    // Generate crypto-secure random session token
-    final rawSessionToken = SecurityUtils.generateRandomToken(32);
-    final sessionTokenHash = SecurityUtils.hashSha256(rawSessionToken);
+      // 4. Generate crypto-secure random session token
+      final rawSessionToken = SecurityUtils.generateRandomToken(32);
+      final sessionTokenHash = SecurityUtils.hashSha256(rawSessionToken);
 
-    // Insert hashed session token into user_sessions table
-    await pool.execute(
-      r"INSERT INTO user_sessions (user_id, session_token_hash, expires_at) VALUES ($1, $2, CURRENT_TIMESTAMP + INTERVAL '30 days')",
-      parameters: [userMap['id'], sessionTokenHash],
+      // Insert hashed session token into user_sessions table
+      await session.execute(
+        r"INSERT INTO user_sessions (user_id, session_token_hash, expires_at) VALUES ($1, $2, CURRENT_TIMESTAMP + INTERVAL '30 days')",
+        parameters: [userMap['id'], sessionTokenHash],
+      );
+
+      return AuthResult(
+        success: true,
+        message: 'Authenticated successfully.',
+        sessionToken: rawSessionToken,
+        user: userMap,
+      );
+    });
+  }
+
+  Future<bool> revokeSession(String sessionToken) async {
+    final tokenHash = SecurityUtils.hashSha256(sessionToken);
+    final pool = Database.pool;
+    final result = await pool.execute(
+      r'UPDATE user_sessions SET expires_at = CURRENT_TIMESTAMP WHERE session_token_hash = $1 AND expires_at > CURRENT_TIMESTAMP RETURNING id',
+      parameters: [tokenHash],
     );
-
-    return AuthResult(
-      success: true,
-      message: 'Authenticated successfully.',
-      sessionToken: rawSessionToken,
-      user: userMap,
-    );
+    return result.isNotEmpty;
   }
 }

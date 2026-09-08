@@ -1,522 +1,439 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
-import '../../../../core/widgets/mobile_device_shell.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-class ProfilePageScreen extends StatelessWidget {
+import '../../../../core/widgets/den_masonry_grid.dart';
+import '../../../../core/widgets/image_crop_adjust_dialog.dart';
+import '../../../organizer/application/organizer_controller.dart';
+import '../../../profile/application/profile_controller.dart';
+import '../widgets/profile_event_ticket_card.dart';
+
+class ProfilePageScreen extends ConsumerWidget {
   const ProfilePageScreen({super.key});
 
+  Future<void> _pickAndAddPhoto(BuildContext context, WidgetRef ref) async {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(source: ImageSource.gallery);
+    if (!context.mounted || image == null) return;
+
+    final adjustedImage = await ImageCropAdjustDialog.show(context, image);
+    if (adjustedImage != null) {
+      final profile = ref.read(profileStateProvider);
+      final updatedPhotos = [...profile.photoUrls, adjustedImage.path];
+      ref.read(profileStateProvider.notifier).updatePhotos(updatedPhotos);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Photo added to profile!')),
+        );
+      }
+    }
+  }
+
+  Future<void> _changeAvatarPhoto(BuildContext context, WidgetRef ref) async {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(source: ImageSource.gallery);
+    if (!context.mounted || image == null) return;
+
+    final adjustedImage = await ImageCropAdjustDialog.show(context, image);
+    if (adjustedImage != null) {
+      final profile = ref.read(profileStateProvider);
+      final updatedPhotos = [adjustedImage.path, ...profile.photoUrls.skip(1)];
+      ref.read(profileStateProvider.notifier).updatePhotos(updatedPhotos);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile photo updated!')),
+        );
+      }
+    }
+  }
+
+  Future<void> _launchInstagram(BuildContext context, String instagramHandle) async {
+    final handle = instagramHandle.trim().replaceAll(RegExp(r'^@'), '');
+    if (handle.isEmpty) return;
+
+    final uri = Uri.parse('https://instagram.com/$handle');
+    try {
+      final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!launched && context.mounted) {
+        await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open Instagram profile: @$handle')),
+        );
+      }
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
-    return MobileDeviceShell(
-      outerBackgroundColor: const Color(0xFFF3F2F0),
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        body: SafeArea(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profile = ref.watch(profileStateProvider);
+    final organizerState = ref.watch(organizerProvider);
+    final hasOrganizer = organizerState.hasOrganizerProfile;
+    final username = profile.username.isNotEmpty ? profile.username : 'username';
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: SingleChildScrollView(
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              _HeaderBar(),
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 8),
-                      const _ProfileInfoSection(),
-                      const SizedBox(height: 8),
-                      const _ActionButtonsSection(),
-                      const SizedBox(height: 8),
-                      const _ContentTabs(),
-                      const SizedBox(height: 2),
-                      const _PostsGrid(),
-                    ],
-                  ),
-                ),
-              ),
-              const _BottomNavigation(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _HeaderBar extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Text(
-            'username',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              color: Colors.black,
-              letterSpacing: -0.4,
-            ),
-          ),
-          Row(
-            children: [
-              IconButton(
-                onPressed: () {},
-                icon: const Icon(Icons.add, color: Colors.black87, size: 30),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints.tightFor(
-                  width: 32,
-                  height: 32,
-                ),
-              ),
-              const SizedBox(width: 10),
-              const Icon(Icons.share_outlined, color: Colors.black87, size: 26),
-              const SizedBox(width: 14),
-              const Icon(Icons.edit_outlined, color: Colors.black87, size: 26),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProfileInfoSection extends StatelessWidget {
-  const _ProfileInfoSection();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Column(
-        children: [
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                width: 149,
-                height: 149,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFFE6E3E1)),
-                  image: const DecorationImage(
-                    image: NetworkImage(
-                      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=800&q=80',
+              // Top Bar: Left = username, Right = + and Pencil icon
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      username,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.black,
+                        letterSpacing: -0.5,
+                      ),
                     ),
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
-              Positioned(
-                right: 2,
-                bottom: 2,
-                child: Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: Colors.black,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
-                  ),
-                  child: const Icon(Icons.check, color: Colors.white, size: 16),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          const Text(
-            'raghav',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              color: Colors.black,
-              letterSpacing: -0.8,
-            ),
-          ),
-          const SizedBox(height: 14),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 290),
-            child: TextField(
-              maxLength: 99,
-              maxLines: 2,
-              textAlign: TextAlign.center,
-              decoration: const InputDecoration(
-                hintText: 'Add a bio...',
-                counterText: '',
-              ),
-              style: const TextStyle(
-                fontSize: 13,
-                color: Colors.black87,
-                height: 1.35,
-              ),
-            ),
-          ),
-          const SizedBox(height: 6),
-          const Row(
-            children: [
-              Expanded(
-                child: _InfoStat(icon: Icons.cake_outlined, value: '24'),
-              ),
-              _VerticalDivider(),
-              Expanded(
-                child: _InfoStat(icon: Icons.male, value: 'Male'),
-              ),
-              _VerticalDivider(),
-              Expanded(
-                child: _InfoStat(icon: Icons.height, value: '5\'10"'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          const Column(
-            children: [
-              _ThinDivider(),
-              SizedBox(height: 14),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.location_on_outlined,
-                    color: Color(0xFF757575),
-                    size: 20,
-                  ),
-                  SizedBox(width: 8),
-                  Text(
-                    'New York, NY',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF1E1E1E),
+                    Row(
+                      children: [
+                        IconButton(
+                          onPressed: () => _pickAndAddPhoto(context, ref),
+                          icon: const Icon(Icons.add, color: Colors.black, size: 28),
+                          tooltip: 'Add Photo',
+                          padding: const EdgeInsets.all(4),
+                          constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          onPressed: () => context.go('/profile/settings'),
+                          icon: const Icon(Icons.edit, color: Colors.black, size: 22),
+                          tooltip: 'Settings',
+                          padding: const EdgeInsets.all(4),
+                          constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-              SizedBox(height: 14),
-              _ThinDivider(),
-              SizedBox(height: 14),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.camera_alt_outlined,
-                    color: Color(0xFF757575),
-                    size: 18,
-                  ),
-                  SizedBox(width: 8),
-                  Text(
-                    '@elenaspace',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF1E1E1E),
+
+              const SizedBox(height: 16),
+
+              // Circular Avatar with small edit pencil & status dot
+              Center(
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.bottomRight,
+                  children: [
+                    GestureDetector(
+                      onTap: () => _changeAvatarPhoto(context, ref),
+                      child: Container(
+                        width: 140,
+                        height: 140,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: const Color(0xFFE5E2EC), width: 1.5),
+                        ),
+                        child: ClipOval(
+                          child: _buildAvatar(profile.photoUrls.isNotEmpty
+                              ? profile.photoUrls.first
+                              : 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=900&q=80'),
+                        ),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 14),
-              _ThinDivider(),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _InfoStat extends StatelessWidget {
-  final IconData icon;
-  final String value;
-
-  const _InfoStat({required this.icon, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Column(
-        children: [
-          Icon(icon, color: const Color(0xFF757575), size: 18),
-          const SizedBox(height: 3),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF1E1E1E),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _VerticalDivider extends StatelessWidget {
-  const _VerticalDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(width: 1, height: 24, color: const Color(0xFFBDBDBD));
-  }
-}
-
-class _ThinDivider extends StatelessWidget {
-  const _ThinDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Container(width: 48, height: 1, color: const Color(0x33000000)),
-    );
-  }
-}
-
-class _ActionButtonsSection extends StatelessWidget {
-  const _ActionButtonsSection();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: [
-          OutlinedButton(
-            onPressed: () {},
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(48, 48),
-              shape: const CircleBorder(),
-              side: const BorderSide(color: Color(0xFFE0E0E0), width: 1.5),
-              backgroundColor: Colors.white,
-            ),
-            child: const Icon(Icons.close, color: Colors.black87, size: 22),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: SizedBox(
-              height: 48,
-              child: ElevatedButton.icon(
-                onPressed: () {},
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF3E2723),
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: const StadiumBorder(),
-                ),
-                icon: const Icon(Icons.person_add_alt_1, size: 18),
-                label: const Text(
-                  'invite',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                    // Small status dot
+                    Positioned(
+                      right: 6,
+                      bottom: 6,
+                      child: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: const BoxDecoration(
+                          color: Colors.black,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                    // Small pencil icon to change profile photo
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: GestureDetector(
+                        onTap: () => _changeAvatarPhoto(context, ref),
+                        child: Container(
+                          width: 30,
+                          height: 30,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: const Color(0xFFE5E2EC)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.1),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(Icons.edit, size: 15, color: Colors.black87),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
-class _ContentTabs extends StatelessWidget {
-  const _ContentTabs();
+              const SizedBox(height: 18),
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 44,
-      decoration: const BoxDecoration(
-        border: Border(
-          top: BorderSide(color: Color(0xFFF0F0F0)),
-          bottom: BorderSide(color: Color(0xFFF0F0F0)),
-        ),
-      ),
-      child: Row(
-        children: const [
-          Expanded(child: _TabIcon(icon: Icons.grid_on_outlined, active: true)),
-          Expanded(child: _TabIcon(icon: Icons.play_circle_outline)),
-          Expanded(child: _TabIcon(icon: Icons.person_outline)),
-        ],
-      ),
-    );
-  }
-}
-
-class _TabIcon extends StatelessWidget {
-  final IconData icon;
-  final bool active;
-
-  const _TabIcon({required this.icon, this.active = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Icon(
-        icon,
-        size: 22,
-        color: active ? const Color(0xFF1E1E1E) : const Color(0xFF9E9E9E),
-      ),
-    );
-  }
-}
-
-class _PostsGrid extends StatelessWidget {
-  const _PostsGrid();
-
-  @override
-  Widget build(BuildContext context) {
-    final posts = <_PostTileData>[
-      const _PostTileData(
-        imageUrl:
-            'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=900&q=80',
-        views: '898',
-      ),
-      const _PostTileData(
-        imageUrl:
-            'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=900&q=80',
-        views: '2,116',
-      ),
-      const _PostTileData(
-        imageUrl:
-            'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=900&q=80',
-        views: '2,406',
-      ),
-    ];
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: 4,
-      padding: const EdgeInsets.only(bottom: 96),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        mainAxisSpacing: 2,
-        crossAxisSpacing: 2,
-      ),
-      itemBuilder: (context, index) {
-        if (index < posts.length) {
-          return _PostTile(data: posts[index]);
-        }
-        return Container(color: const Color(0xFFF7F7F7));
-      },
-    );
-  }
-}
-
-class _PostTileData {
-  final String imageUrl;
-  final String views;
-
-  const _PostTileData({required this.imageUrl, required this.views});
-}
-
-class _PostTile extends StatelessWidget {
-  final _PostTileData data;
-
-  const _PostTile({required this.data});
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Image.network(data.imageUrl, fit: BoxFit.cover),
-        const Positioned(
-          top: 8,
-          right: 8,
-          child: Icon(
-            Icons.collections_outlined,
-            color: Colors.white,
-            size: 16,
-          ),
-        ),
-        Positioned(
-          left: 8,
-          bottom: 8,
-          child: Row(
-            children: [
-              const Icon(
-                Icons.visibility_outlined,
-                color: Colors.white,
-                size: 12,
-              ),
-              const SizedBox(width: 4),
+              // Full Name (e.g. raghav)
               Text(
-                data.views,
+                profile.fullName.isNotEmpty ? profile.fullName : 'raghav',
                 style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.black,
+                  letterSpacing: -0.5,
                 ),
               ),
+              const SizedBox(height: 8),
+
+              // Add a bio... / actual bio
+              Text(
+                profile.bio.isNotEmpty ? profile.bio : 'Add a bio...',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: profile.bio.isNotEmpty ? Colors.black87 : const Color(0xFF8E8E93),
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Single Row Info with Dividers: 🎂 24 | ♂ Male | 📏 5'10"
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Age
+                    Row(
+                      children: [
+                        const Icon(Icons.cake_outlined, size: 18, color: Color(0xFF555555)),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${profile.age > 0 ? profile.age : 24}',
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.black),
+                        ),
+                      ],
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 20),
+                      child: SizedBox(
+                        height: 20,
+                        child: VerticalDivider(color: Color(0xFFDCD8E3), thickness: 1.2),
+                      ),
+                    ),
+
+                    // Gender
+                    Row(
+                      children: [
+                        const Icon(Icons.male, size: 20, color: Color(0xFF555555)),
+                        const SizedBox(width: 6),
+                        Text(
+                          profile.gender.isNotEmpty ? profile.gender : 'Male',
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.black),
+                        ),
+                      ],
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 20),
+                      child: SizedBox(
+                        height: 20,
+                        child: VerticalDivider(color: Color(0xFFDCD8E3), thickness: 1.2),
+                      ),
+                    ),
+
+                    // Height
+                    Row(
+                      children: [
+                        const Icon(Icons.straighten, size: 18, color: Color(0xFF555555)),
+                        const SizedBox(width: 8),
+                        Text(
+                          profile.heightLabel.isNotEmpty ? profile.heightLabel : "5'10\"",
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.black),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Location: 📍 New Delhi, India
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.location_on_outlined, size: 18, color: Color(0xFF6D6D6D)),
+                  const SizedBox(width: 6),
+                  Text(
+                    profile.location.isNotEmpty ? profile.location : 'New Delhi, India',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1E1E1E),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+
+              // Instagram Handle (Clickable, clean text without camera icon box)
+              GestureDetector(
+                onTap: () => _launchInstagram(context, profile.instagramUsername.isNotEmpty ? profile.instagramUsername : 'elenaspace'),
+                child: Text(
+                  '@${profile.instagramUsername.isNotEmpty ? profile.instagramUsername : "elenaspace"}',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Booked Event Ticket Card
+              ProfileEventTicketCard(
+                eventId: 'evt_123',
+                eventName: 'Neon Nights Festival',
+                date: "24 Aug '25",
+                time: "10:00 PM",
+                location: "Cyber Pier 9",
+                userName: profile.fullName.isNotEmpty ? profile.fullName : 'Raghav',
+                ticketCount: 2,
+                passType: 'VIP',
+                onTap: () {
+                  context.push('/event/evt_123/ticket');
+                },
+              ),
+
+              const SizedBox(height: 28),
+
+              // Action Buttons: 2 in top row, 1 wide button below
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _ActionButton(
+                            label: 'Share Profile',
+                            onTap: () => context.push('/profile/share'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _ActionButton(
+                            label: 'Wallet',
+                            onTap: () => context.push('/profile/wallet'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    _ActionButton(
+                      label: hasOrganizer
+                          ? 'Switch to Organizer Profile'
+                          : 'Create an Event/Organization Profile',
+                      onTap: () {
+                        if (hasOrganizer) {
+                          ref.read(organizerProvider.notifier).switchMode(ProfileMode.organizer);
+                          context.push('/organizer/profile');
+                        } else {
+                          context.push('/organizer/intro');
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 30),
+
+              // Four Squares Grid Tab Icon (⚏)
+              const Center(
+                child: Icon(Icons.grid_view_rounded, size: 24, color: Colors.black),
+              ),
+              const SizedBox(height: 16),
+
+              // 2-Column Den Masonry Photo Grid
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: DenMasonryGrid(
+                  photos: profile.photoUrls,
+                ),
+              ),
+
+              const SizedBox(height: 36),
             ],
           ),
         ),
-      ],
-    );
-  }
-}
-
-class _BottomNavigation extends StatelessWidget {
-  const _BottomNavigation();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 76,
-      margin: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      decoration: BoxDecoration(
-        color: const Color(0xCCFFFFFF),
-        borderRadius: BorderRadius.circular(36),
-        border: Border.all(color: const Color(0xFFE5E5E5)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x14000000),
-            blurRadius: 28,
-            offset: Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: const [
-          _NavIcon(icon: Icons.home_outlined),
-          _NavIcon(icon: Icons.play_circle_outline),
-          _NavIcon(icon: Icons.add_circle_outline),
-          _NavIcon(icon: Icons.search_outlined),
-          _NavAvatar(),
-        ],
       ),
     );
   }
-}
 
-class _NavIcon extends StatelessWidget {
-  final IconData icon;
-
-  const _NavIcon({required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return Icon(icon, color: const Color(0xFF1F1F1F), size: 28);
+  Widget _buildAvatar(String url) {
+    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:')) {
+      return Image.network(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) =>
+            const Center(child: Icon(Icons.person, color: Colors.black26, size: 60)),
+      );
+    } else {
+      return Image.file(
+        File(url),
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) =>
+            const Center(child: Icon(Icons.person, color: Colors.black26, size: 60)),
+      );
+    }
   }
 }
 
-class _NavAvatar extends StatelessWidget {
-  const _NavAvatar();
+class _ActionButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+
+  const _ActionButton({required this.label, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 30,
-      height: 30,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.black, width: 2),
-        image: const DecorationImage(
-          image: NetworkImage(
-            'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80',
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        height: 44,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: const Color(0xFFF3F3F5),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE6E5EA)),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
           ),
-          fit: BoxFit.cover,
         ),
       ),
     );
