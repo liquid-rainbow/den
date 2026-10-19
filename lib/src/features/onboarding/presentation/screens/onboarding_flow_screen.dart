@@ -13,7 +13,10 @@ import '../../../../core/theme/den_colors.dart';
 import '../../../../core/widgets/den_buttons.dart';
 import '../../../../core/widgets/den_text_styles.dart';
 import '../../../../core/widgets/den_underline_field.dart';
+import '../../../../core/widgets/image_crop_adjust_dialog.dart';
 import '../../../../core/widgets/mobile_device_shell.dart';
+import '../../../profile/application/profile_controller.dart';
+import '../../../profile/data/profile_api_repository.dart';
 import '../../data/repositories/photo_upload_repository_impl.dart';
 import '../../data/repositories/face_verification_repository_impl.dart';
 
@@ -67,7 +70,8 @@ class OnboardingFormState {
     final today = DateTime.now();
     final birth = DateTime(y, m, d);
     int age = today.year - birth.year;
-    if (today.month < birth.month || (today.month == birth.month && today.day < birth.day)) {
+    if (today.month < birth.month ||
+        (today.month == birth.month && today.day < birth.day)) {
       age--;
     }
     return (age <= 0 || age > 110) ? null : age;
@@ -105,7 +109,8 @@ class OnboardingFormState {
       lat: lat ?? this.lat,
       lng: lng ?? this.lng,
       isLocationFetching: isLocationFetching ?? this.isLocationFetching,
-      isLocationButtonEnabled: isLocationButtonEnabled ?? this.isLocationButtonEnabled,
+      isLocationButtonEnabled:
+          isLocationButtonEnabled ?? this.isLocationButtonEnabled,
       instagramUsername: instagramUsername ?? this.instagramUsername,
       photos: photos ?? this.photos,
       isFaceVerified: isFaceVerified ?? this.isFaceVerified,
@@ -120,14 +125,17 @@ class OnboardingFormNotifier extends Notifier<OnboardingFormState> {
     return const OnboardingFormState();
   }
 
-  void setFullName(String val) => state = state.copyWith(fullName: val, error: null);
+  void setFullName(String val) =>
+      state = state.copyWith(fullName: val, error: null);
   void setDay(String val) => state = state.copyWith(day: val, error: null);
   void setMonth(String val) => state = state.copyWith(month: val, error: null);
   void setYear(String val) => state = state.copyWith(year: val, error: null);
-  void setGender(String val) => state = state.copyWith(gender: val, error: null);
+  void setGender(String val) =>
+      state = state.copyWith(gender: val, error: null);
   void setFeet(int val) => state = state.copyWith(feet: val, error: null);
   void setInches(int val) => state = state.copyWith(inches: val, error: null);
-  void setLocation(String loc, double lat, double lng) => state = state.copyWith(
+  void setLocation(String loc, double lat, double lng) =>
+      state = state.copyWith(
         location: loc,
         lat: lat,
         lng: lng,
@@ -197,8 +205,8 @@ class OnboardingFormNotifier extends Notifier<OnboardingFormState> {
           final String resolvedCity = (loc != null && loc.isNotEmpty)
               ? loc
               : ((subAdmin != null && subAdmin.isNotEmpty)
-                  ? subAdmin
-                  : (admin ?? ''));
+                    ? subAdmin
+                    : (admin ?? ''));
 
           if (resolvedCity.isNotEmpty) {
             state = state.copyWith(
@@ -221,11 +229,16 @@ class OnboardingFormNotifier extends Notifier<OnboardingFormState> {
     }
   }
 
-  void setInstagram(String val) =>
-      state = state.copyWith(instagramUsername: val.replaceAll(RegExp(r'^@'), ''), error: null);
+  void setInstagram(String val) => state = state.copyWith(
+    instagramUsername: val.replaceAll(RegExp(r'^@'), ''),
+    error: null,
+  );
 
-  final PhotoUploadRepositoryImpl _photoUploadRepo = PhotoUploadRepositoryImpl();
-  final FaceVerificationRepositoryImpl _faceVerificationRepo = FaceVerificationRepositoryImpl();
+  final PhotoUploadRepositoryImpl _photoUploadRepo =
+      PhotoUploadRepositoryImpl();
+  final FaceVerificationRepositoryImpl _faceVerificationRepo =
+      FaceVerificationRepositoryImpl();
+  final ProfileApiRepository _profileApiRepo = ProfileApiRepository();
 
   /// Step 7: Photo upload interface call per docs/05-photo-upload-approach.md.
   /// INTENTIONAL BEHAVIOR:
@@ -238,7 +251,9 @@ class OnboardingFormNotifier extends Notifier<OnboardingFormState> {
       final contentType = image.mimeType ?? 'image/jpeg';
 
       // 1. Request presigned upload URL from backend
-      final result = await _photoUploadRepo.requestUploadUrl(contentType: contentType);
+      final result = await _photoUploadRepo.requestUploadUrl(
+        contentType: contentType,
+      );
 
       // 2. Direct S3 PUT upload
       await _photoUploadRepo.uploadToS3(
@@ -256,30 +271,135 @@ class OnboardingFormNotifier extends Notifier<OnboardingFormState> {
   }
 
   /// Step 8: Face verification interface call per docs/04-face-verification-approach.md.
-  /// INTENTIONAL BEHAVIOR:
-  /// The backend server does not exist in this phase. Calling _faceVerificationRepo.createLivenessSession
-  /// will throw an HTTP exception at runtime, which is expected and intentional. Do not add a mock fallback.
   Future<void> startFaceVerification(WidgetRef ref) async {
     state = state.copyWith(error: null);
+    final sessionToken = ref.read(authStateProvider).sessionToken;
+    if (sessionToken == null || sessionToken.isEmpty) {
+      state = state.copyWith(error: 'Session expired. Please log in again.');
+      return;
+    }
+
     try {
       // 1. Create liveness session ID (POST /api/onboarding/face-liveness/session)
-      final sessionId = await _faceVerificationRepo.createLivenessSession();
+      final sessionId = await _faceVerificationRepo.createLivenessSession(
+        sessionToken: sessionToken,
+      );
 
       // 2. Verify face matching (POST /api/onboarding/verify-face)
-      final isLive = await _faceVerificationRepo.verifyFace(sessionId: sessionId);
-      setFaceVerified(isLive);
-      if (isLive) {
-        ref.read(authStateProvider.notifier).updateAuth(
-              isAuthenticated: true,
-              hasAcceptedGuardrail: true,
-              isOnboardingComplete: true,
-            );
+      final outcome = await _faceVerificationRepo.verifyFace(
+        sessionId: sessionId,
+        sessionToken: sessionToken,
+      );
+      setFaceVerified(outcome.isLive);
+      if (outcome.isLive) {
+        await completeOnboarding(ref);
+      } else {
+        state = state.copyWith(
+          error: outcome.message.isEmpty
+              ? 'Face verification was not completed. You can retry or skip for now.'
+              : outcome.message,
+        );
       }
     } catch (e) {
       state = state.copyWith(
-        error: 'Face verification failed: Backend API unavailable (${e.toString()})',
+        error: e is FaceVerificationApiException
+            ? e.message
+            : 'Face verification is currently unavailable. Please try again later.',
       );
     }
+  }
+
+  int _calculateAge() {
+    final birthYear = int.tryParse(state.year);
+    if (birthYear != null && birthYear > 1900) {
+      return DateTime.now().year - birthYear;
+    }
+    return 24;
+  }
+
+  void _seedProfileFromOnboarding(WidgetRef ref) {
+    ref
+        .read(profileStateProvider.notifier)
+        .seedFromOnboarding(
+          ProfileSeed(
+            fullName: state.fullName.isEmpty ? 'New Member' : state.fullName,
+            username: ProfileController.generateUniqueDenUsername(),
+            age: _calculateAge(),
+            location: state.location.isEmpty ? 'New York, NY' : state.location,
+            gender: state.gender.isEmpty ? 'Unspecified' : state.gender,
+            heightCm: state.heightCm,
+            instagramUsername: state.instagramUsername,
+            photoUrls: state.photos,
+            isFaceVerified: state.isFaceVerified,
+          ),
+        );
+  }
+
+  Future<void> _completeOnboarding(WidgetRef ref) async {
+    final auth = ref.read(authStateProvider);
+    final sessionToken = auth.sessionToken;
+    if (sessionToken == null || sessionToken.isEmpty) {
+      state = state.copyWith(error: 'Session expired. Please log in again.');
+      return;
+    }
+
+    try {
+      final user = await _profileApiRepo.completeOnboarding(
+        sessionToken: sessionToken,
+        payload: {
+          'phoneNumber': ref.read(authStateProvider).phoneNumber ?? '',
+          'fullName': state.fullName,
+          'dob': _composeDob(),
+          'gender': state.gender,
+          'heightCm': state.heightCm,
+          'location': state.location,
+          'photos': state.photos,
+          'instagramUsername': state.instagramUsername,
+        },
+      );
+
+      ref
+          .read(profileStateProvider.notifier)
+          .seedFromOnboarding(
+            ProfileSeed(
+              fullName: user['fullName']?.toString() ?? state.fullName,
+              username: ProfileController.generateUniqueDenUsername(),
+              age: _calculateAge(),
+              location: user['location']?.toString() ?? state.location,
+              gender: user['gender']?.toString() ?? state.gender,
+              heightCm: (user['heightCm'] as num?)?.toInt() ?? state.heightCm,
+              instagramUsername:
+                  user['instagramUsername']?.toString() ??
+                  state.instagramUsername,
+              photoUrls:
+                  (user['photos'] as List<dynamic>?)
+                      ?.map((item) => item.toString())
+                      .toList() ??
+                  state.photos,
+              isFaceVerified: state.isFaceVerified,
+            ),
+          );
+
+      ref
+          .read(authStateProvider.notifier)
+          .updateAuth(
+            isAuthenticated: true,
+            hasAcceptedGuardrail: true,
+            isOnboardingComplete: true,
+          );
+    } catch (e) {
+      state = state.copyWith(
+        error: e is ProfileApiException
+            ? e.message
+            : 'Failed to complete profile setup. Please try again.',
+      );
+    }
+  }
+
+  String _composeDob() {
+    final day = state.day.padLeft(2, '0');
+    final month = state.month.padLeft(2, '0');
+    return '${state.year}-$month-$day';
   }
 
   void addPhoto(String url) {
@@ -299,6 +419,11 @@ class OnboardingFormNotifier extends Notifier<OnboardingFormState> {
     state = state.copyWith(isFaceVerified: verified, error: null);
   }
 
+  Future<void> completeOnboarding(WidgetRef ref) async {
+    _seedProfileFromOnboarding(ref);
+    await _completeOnboarding(ref);
+  }
+
   void previousStep() {
     if (state.currentStep > 1) {
       state = state.copyWith(currentStep: state.currentStep - 1, error: null);
@@ -316,7 +441,9 @@ class OnboardingFormNotifier extends Notifier<OnboardingFormState> {
     if (step == 2) {
       final age = state.calculatedAge;
       if (age == null || age < 18) {
-        state = state.copyWith(error: 'You must be at least 18 years old to join.');
+        state = state.copyWith(
+          error: 'You must be at least 18 years old to join.',
+        );
         return false;
       }
     }
@@ -337,7 +464,9 @@ class OnboardingFormNotifier extends Notifier<OnboardingFormState> {
         return false;
       }
       if (state.photos.length < 2) {
-        state = state.copyWith(error: 'Please add at least one photo in the grid.');
+        state = state.copyWith(
+          error: 'Please add at least one photo in the grid.',
+        );
         return false;
       }
     }
@@ -351,13 +480,16 @@ class OnboardingFormNotifier extends Notifier<OnboardingFormState> {
 }
 
 final onboardingFormProvider =
-    NotifierProvider<OnboardingFormNotifier, OnboardingFormState>(OnboardingFormNotifier.new);
+    NotifierProvider<OnboardingFormNotifier, OnboardingFormState>(
+      OnboardingFormNotifier.new,
+    );
 
 class OnboardingFlowScreen extends ConsumerStatefulWidget {
   const OnboardingFlowScreen({super.key});
 
   @override
-  ConsumerState<OnboardingFlowScreen> createState() => _OnboardingFlowScreenState();
+  ConsumerState<OnboardingFlowScreen> createState() =>
+      _OnboardingFlowScreenState();
 }
 
 class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
@@ -365,7 +497,9 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
   final MapController _mapController = MapController();
 
   Widget _buildPhotoImage(String photoUrl) {
-    if (photoUrl.startsWith('http://') || photoUrl.startsWith('https://') || photoUrl.startsWith('blob:')) {
+    if (photoUrl.startsWith('http://') ||
+        photoUrl.startsWith('https://') ||
+        photoUrl.startsWith('blob:')) {
       return Image.network(
         photoUrl,
         fit: BoxFit.cover,
@@ -386,6 +520,16 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
     }
   }
 
+  Future<void> _pickAndUploadPhoto(OnboardingFormNotifier notifier) async {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(source: ImageSource.gallery);
+    if (!mounted || image == null) return;
+    final adjusted = await ImageCropAdjustDialog.show(context, image);
+    if (adjusted != null) {
+      await notifier.uploadPhoto(adjusted);
+    }
+  }
+
   @override
   void dispose() {
     _mapController.dispose();
@@ -395,7 +539,8 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
   @override
   Widget build(BuildContext context) {
     ref.listen<OnboardingFormState>(onboardingFormProvider, (previous, next) {
-      if (previous != null && (previous.lat != next.lat || previous.lng != next.lng)) {
+      if (previous != null &&
+          (previous.lat != next.lat || previous.lng != next.lng)) {
         if (mounted) {
           try {
             _mapController.move(LatLng(next.lat, next.lng), 13.0);
@@ -436,22 +581,32 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
             children: [
               // Header & Progress Dots
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20.0,
+                  vertical: 12.0,
+                ),
                 child: Column(
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.arrow_back, color: DenColors.ink, size: 24),
+                          icon: const Icon(
+                            Icons.arrow_back,
+                            color: DenColors.ink,
+                            size: 24,
+                          ),
                           onPressed: () {
                             if (state.currentStep > 1) {
                               notifier.previousStep();
                             } else {
-                              ref.read(authStateProvider.notifier).updateAuth(
-                                    isAuthenticated: true,
+                              ref
+                                  .read(authStateProvider.notifier)
+                                  .updateAuth(
+                                    isAuthenticated: false,
                                     hasAcceptedGuardrail: false,
                                     isOnboardingComplete: false,
+                                    sessionToken: null,
                                   );
                             }
                           },
@@ -488,10 +643,12 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
                             boxShadow: isActive
                                 ? [
                                     BoxShadow(
-                                      color: DenColors.ink.withValues(alpha: isCurrent ? 0.5 : 0.2),
+                                      color: DenColors.ink.withValues(
+                                        alpha: isCurrent ? 0.5 : 0.2,
+                                      ),
                                       blurRadius: isCurrent ? 8 : 4,
                                       spreadRadius: isCurrent ? 2 : 0,
-                                    )
+                                    ),
                                   ]
                                 : null,
                           ),
@@ -504,7 +661,12 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
 
               // 1. Step Header Block (Fixed upper section near top under dots)
               Padding(
-                padding: const EdgeInsets.only(top: 20.0, bottom: 8.0, left: 24.0, right: 24.0),
+                padding: const EdgeInsets.only(
+                  top: 20.0,
+                  bottom: 8.0,
+                  left: 24.0,
+                  right: 24.0,
+                ),
                 child: _buildStepHeader(state),
               ),
 
@@ -542,9 +704,12 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
                   padding: const EdgeInsets.all(20.0),
                   child: denPrimaryButton(
                     label: actionText,
-                    isLoading: state.currentStep == 5 && state.isLocationFetching,
-                    onPressed: (state.currentStep == 2 && (age == null || age < 18)) ||
-                            (state.currentStep == 5 && !state.isLocationButtonEnabled)
+                    isLoading:
+                        state.currentStep == 5 && state.isLocationFetching,
+                    onPressed:
+                        (state.currentStep == 2 && (age == null || age < 18)) ||
+                            (state.currentStep == 5 &&
+                                !state.isLocationButtonEnabled)
                         ? null
                         : () {
                             notifier.nextStep();
@@ -576,7 +741,10 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
           children: [
             denStepHeadline("What's your Instagram?"),
             const SizedBox(height: 6),
-            denStepSubtext('Visible only to your confirmed matches', fontSize: 12),
+            denStepSubtext(
+              'Visible only to your confirmed matches',
+              fontSize: 12,
+            ),
           ],
         );
       case 7:
@@ -618,7 +786,10 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
   }
 
   /// Body section: Positioned in exact vertical center of available screen space
-  Widget _buildStepBody(OnboardingFormState state, OnboardingFormNotifier notifier) {
+  Widget _buildStepBody(
+    OnboardingFormState state,
+    OnboardingFormNotifier notifier,
+  ) {
     switch (state.currentStep) {
       case 1:
         return Column(
@@ -665,7 +836,8 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
                   ),
                   children: [
                     TileLayer(
-                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      urlTemplate:
+                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName: 'com.example.den',
                     ),
                     MarkerLayer(
@@ -692,7 +864,11 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
             ),
             if (state.location.isNotEmpty) ...[
               const SizedBox(height: 28),
-              denStepSubtext('CITY: ${state.location}', fontSize: 14, color: DenColors.ink),
+              denStepSubtext(
+                'CITY: ${state.location}',
+                fontSize: 14,
+                color: DenColors.ink,
+              ),
             ],
           ],
         );
@@ -705,7 +881,11 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
               value: state.instagramUsername,
               hint: 'your_username',
               prefix: '@',
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: DenColors.ink),
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: DenColors.ink,
+              ),
               onChanged: notifier.setInstagram,
             ),
           ],
@@ -729,11 +909,7 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
                   GestureDetector(
                     onTap: () async {
                       if (!hasMainPhoto) {
-                        final picker = ImagePicker();
-                        final image = await picker.pickImage(source: ImageSource.gallery);
-                        if (image != null) {
-                          await notifier.uploadPhoto(image);
-                        }
+                        await _pickAndUploadPhoto(notifier);
                       }
                     },
                     child: Stack(
@@ -744,14 +920,20 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
                           height: 140,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: const Color(0xFF3F2537).withValues(alpha: 0.08),
+                            color: const Color(
+                              0xFF3F2537,
+                            ).withValues(alpha: 0.08),
                             border: Border.all(
-                              color: const Color(0xFF3F2537).withValues(alpha: 0.25),
+                              color: const Color(
+                                0xFF3F2537,
+                              ).withValues(alpha: 0.25),
                               width: 3,
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF3F2537).withValues(alpha: 0.15),
+                                color: const Color(
+                                  0xFF3F2537,
+                                ).withValues(alpha: 0.15),
                                 blurRadius: 20,
                                 spreadRadius: 2,
                               ),
@@ -791,11 +973,7 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
                               if (hasMainPhoto) {
                                 notifier.removePhoto(0);
                               } else {
-                                final picker = ImagePicker();
-                                final image = await picker.pickImage(source: ImageSource.gallery);
-                                if (image != null) {
-                                  await notifier.uploadPhoto(image);
-                                }
+                                await _pickAndUploadPhoto(notifier);
                               }
                             },
                             child: Container(
@@ -804,7 +982,10 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
                               decoration: BoxDecoration(
                                 color: const Color(0xFF3F2537),
                                 shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 3),
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 3,
+                                ),
                                 boxShadow: const [
                                   BoxShadow(
                                     color: Colors.black26,
@@ -885,7 +1066,9 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
                   itemCount: secondarySlotCount,
                   itemBuilder: (context, index) {
                     final hasSecondaryPhoto = index < secondaryPhotos.length;
-                    final photoUrl = hasSecondaryPhoto ? secondaryPhotos[index] : null;
+                    final photoUrl = hasSecondaryPhoto
+                        ? secondaryPhotos[index]
+                        : null;
 
                     if (hasSecondaryPhoto) {
                       return Stack(
@@ -905,7 +1088,11 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
                                   color: Colors.black54,
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Icon(Icons.close, size: 14, color: Colors.white),
+                                child: const Icon(
+                                  Icons.close,
+                                  size: 14,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
                           ),
@@ -913,19 +1100,17 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
                       );
                     } else {
                       return GestureDetector(
-                        onTap: () async {
-                          final picker = ImagePicker();
-                          final image = await picker.pickImage(source: ImageSource.gallery);
-                          if (image != null) {
-                            await notifier.uploadPhoto(image);
-                          }
-                        },
+                        onTap: () async => await _pickAndUploadPhoto(notifier),
                         child: Container(
                           decoration: BoxDecoration(
-                            color: const Color(0xFF3F2537).withValues(alpha: 0.05),
+                            color: const Color(
+                              0xFF3F2537,
+                            ).withValues(alpha: 0.05),
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                              color: const Color(0xFF3F2537).withValues(alpha: 0.18),
+                              color: const Color(
+                                0xFF3F2537,
+                              ).withValues(alpha: 0.18),
                               width: 1.5,
                             ),
                           ),
@@ -956,7 +1141,11 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
                 color: DenColors.primary,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.verified_user, size: 36, color: Colors.white),
+              child: const Icon(
+                Icons.verified_user,
+                size: 36,
+                color: Colors.white,
+              ),
             ),
             const SizedBox(height: 32),
             denPrimaryButton(
@@ -969,12 +1158,8 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
             const SizedBox(height: 14),
             denSecondaryButton(
               label: 'SKIP FOR NOW',
-              onPressed: () {
-                ref.read(authStateProvider.notifier).updateAuth(
-                      isAuthenticated: true,
-                      hasAcceptedGuardrail: true,
-                      isOnboardingComplete: true,
-                    );
+              onPressed: () async {
+                await notifier.completeOnboarding(ref);
               },
             ),
           ],
@@ -1009,8 +1194,12 @@ class _SingleValuePickerState extends State<_SingleValuePicker> {
 
   FixedExtentScrollController get controller {
     if (_scrollController == null) {
-      final initialIndex = widget.options.indexOf(widget.value).clamp(0, widget.options.length - 1);
-      _scrollController = FixedExtentScrollController(initialItem: initialIndex);
+      final initialIndex = widget.options
+          .indexOf(widget.value)
+          .clamp(0, widget.options.length - 1);
+      _scrollController = FixedExtentScrollController(
+        initialItem: initialIndex,
+      );
     }
     return _scrollController!;
   }
@@ -1019,7 +1208,9 @@ class _SingleValuePickerState extends State<_SingleValuePicker> {
   void didUpdateWidget(covariant _SingleValuePicker oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.value != widget.value) {
-      final newIndex = widget.options.indexOf(widget.value).clamp(0, widget.options.length - 1);
+      final newIndex = widget.options
+          .indexOf(widget.value)
+          .clamp(0, widget.options.length - 1);
       if (_scrollController != null &&
           _scrollController!.hasClients &&
           _scrollController!.selectedItem != newIndex) {
@@ -1035,8 +1226,13 @@ class _SingleValuePickerState extends State<_SingleValuePicker> {
   }
 
   void _stepBy(int delta) {
-    final currentIndex = widget.options.indexOf(widget.value).clamp(0, widget.options.length - 1);
-    final targetIndex = (currentIndex + delta).clamp(0, widget.options.length - 1);
+    final currentIndex = widget.options
+        .indexOf(widget.value)
+        .clamp(0, widget.options.length - 1);
+    final targetIndex = (currentIndex + delta).clamp(
+      0,
+      widget.options.length - 1,
+    );
     if (targetIndex != currentIndex) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         widget.onChanged(widget.options[targetIndex]);
@@ -1053,7 +1249,9 @@ class _SingleValuePickerState extends State<_SingleValuePicker> {
 
   @override
   Widget build(BuildContext context) {
-    final selectedIndex = widget.options.indexOf(widget.value).clamp(0, widget.options.length - 1);
+    final selectedIndex = widget.options
+        .indexOf(widget.value)
+        .clamp(0, widget.options.length - 1);
 
     return Listener(
       onPointerSignal: (pointerSignal) {
@@ -1126,10 +1324,14 @@ class _SingleValuePickerState extends State<_SingleValuePicker> {
                           widget.options[index],
                           style: TextStyle(
                             fontSize: isSelected ? 22 : 15,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.w500,
                             color: isSelected
                                 ? const Color(0xFF3F2537)
-                                : const Color(0xFF3F2537).withValues(alpha: 0.35),
+                                : const Color(
+                                    0xFF3F2537,
+                                  ).withValues(alpha: 0.35),
                           ),
                         ),
                       );
@@ -1149,10 +1351,7 @@ class _BirthdayWheelPicker extends StatelessWidget {
   final OnboardingFormState state;
   final OnboardingFormNotifier notifier;
 
-  const _BirthdayWheelPicker({
-    required this.state,
-    required this.notifier,
-  });
+  const _BirthdayWheelPicker({required this.state, required this.notifier});
 
   @override
   Widget build(BuildContext context) {
@@ -1176,7 +1375,14 @@ class _BirthdayWheelPicker extends StatelessWidget {
             ),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 8),
-              child: Text('/', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black26)),
+              child: Text(
+                '/',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black26,
+                ),
+              ),
             ),
             _SingleValuePicker(
               value: state.month,
@@ -1186,7 +1392,14 @@ class _BirthdayWheelPicker extends StatelessWidget {
             ),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 8),
-              child: Text('/', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black26)),
+              child: Text(
+                '/',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black26,
+                ),
+              ),
             ),
             _SingleValuePicker(
               value: state.year,
@@ -1207,10 +1420,7 @@ class _HeightWheelPicker extends StatelessWidget {
   final OnboardingFormState state;
   final OnboardingFormNotifier notifier;
 
-  const _HeightWheelPicker({
-    required this.state,
-    required this.notifier,
-  });
+  const _HeightWheelPicker({required this.state, required this.notifier});
 
   @override
   Widget build(BuildContext context) {
@@ -1262,13 +1472,11 @@ class _GenderSelectorWidget extends ConsumerStatefulWidget {
   final OnboardingFormState state;
   final OnboardingFormNotifier notifier;
 
-  const _GenderSelectorWidget({
-    required this.state,
-    required this.notifier,
-  });
+  const _GenderSelectorWidget({required this.state, required this.notifier});
 
   @override
-  ConsumerState<_GenderSelectorWidget> createState() => _GenderSelectorWidgetState();
+  ConsumerState<_GenderSelectorWidget> createState() =>
+      _GenderSelectorWidgetState();
 }
 
 class _GenderSelectorWidgetState extends ConsumerState<_GenderSelectorWidget> {
@@ -1293,7 +1501,9 @@ class _GenderSelectorWidgetState extends ConsumerState<_GenderSelectorWidget> {
   @override
   Widget build(BuildContext context) {
     const options = ['Female', 'Male', 'Non-Binary'];
-    final currentSelected = _animatingGender ?? (widget.state.gender.isEmpty ? null : widget.state.gender);
+    final currentSelected =
+        _animatingGender ??
+        (widget.state.gender.isEmpty ? null : widget.state.gender);
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -1310,7 +1520,10 @@ class _GenderSelectorWidgetState extends ConsumerState<_GenderSelectorWidget> {
               curve: Curves.easeOutBack,
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 250),
-                padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 36,
+                  vertical: 14,
+                ),
                 decoration: BoxDecoration(
                   color: isSelected
                       ? const Color(0xFF3F2537).withValues(alpha: 0.12)
@@ -1319,7 +1532,9 @@ class _GenderSelectorWidgetState extends ConsumerState<_GenderSelectorWidget> {
                   boxShadow: isSelected
                       ? [
                           BoxShadow(
-                            color: const Color(0xFF3F2537).withValues(alpha: 0.18),
+                            color: const Color(
+                              0xFF3F2537,
+                            ).withValues(alpha: 0.18),
                             blurRadius: 16,
                             spreadRadius: 2,
                           ),
@@ -1333,7 +1548,9 @@ class _GenderSelectorWidgetState extends ConsumerState<_GenderSelectorWidget> {
                     fontSize: isSelected ? 24 : 22,
                     fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
                     letterSpacing: isSelected ? 0.5 : 0,
-                    color: isSelected ? const Color(0xFF3F2537) : DenColors.mutedLight,
+                    color: isSelected
+                        ? const Color(0xFF3F2537)
+                        : DenColors.mutedLight,
                   ),
                 ),
               ),

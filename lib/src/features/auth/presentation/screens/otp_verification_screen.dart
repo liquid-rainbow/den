@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app.dart';
 import '../../../../core/widgets/den_buttons.dart';
 import '../../../../core/widgets/mobile_device_shell.dart';
+import '../../../profile/application/profile_controller.dart';
 import '../controllers/auth_controller.dart';
 
 class OtpVerificationScreen extends ConsumerStatefulWidget {
@@ -246,12 +247,39 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
                     onPressed: (state.otpCode.length != 6 || state.isSubmitting)
                         ? null
                         : () async {
-                            final success = await notifier.verifyOtp();
-                            if (success && context.mounted) {
+                            final sessionResult = await notifier.verifyOtp();
+                            if (sessionResult != null && context.mounted) {
+                              final user = sessionResult.user;
+                              final isExistingUser = user['status'] == 'active' ||
+                                  (user['instagramUsername'] != null &&
+                                      user['instagramUsername'].toString().isNotEmpty &&
+                                      user['status'] != 'pending_verification');
+
+                              if (isExistingUser) {
+                                ref.read(profileStateProvider.notifier).seedFromOnboarding(
+                                      ProfileSeed(
+                                        fullName: user['fullName']?.toString() ?? '',
+                                        username: user['instagramUsername']?.toString() ?? '',
+                                        location: user['location']?.toString() ?? '',
+                                        gender: user['gender']?.toString() ?? '',
+                                        heightCm: (user['heightCm'] as num?)?.toInt() ?? 170,
+                                        instagramUsername: user['instagramUsername']?.toString() ?? '',
+                                        bio: user['bio']?.toString(),
+                                        photoUrls: (user['photos'] as List<dynamic>?)
+                                                ?.map((e) => e.toString())
+                                                .toList() ??
+                                            [],
+                                        isFaceVerified: user['isVerified'] == true,
+                                      ),
+                                    );
+                              }
+
                               ref.read(authStateProvider.notifier).updateAuth(
                                     isAuthenticated: true,
                                     hasAcceptedGuardrail: true,
-                                    isOnboardingComplete: false,
+                                    isOnboardingComplete: isExistingUser,
+                                    sessionToken: sessionResult.sessionToken,
+                                    phoneNumber: state.fullPhoneNumber,
                                   );
                             }
                           },

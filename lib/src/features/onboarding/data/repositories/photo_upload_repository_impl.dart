@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
+
+import '../../../../core/config/api_config.dart';
 import '../../domain/repositories/photo_upload_repository.dart';
 
 /// Real HTTP implementation calling POST /api/uploads/photo-url
@@ -14,17 +16,20 @@ class PhotoUploadRepositoryImpl implements PhotoUploadRepository {
   final Dio _dio;
 
   PhotoUploadRepositoryImpl({Dio? dio})
-      : _dio = dio ??
-            Dio(
-              BaseOptions(
-                baseUrl: 'http://localhost:5000',
-                connectTimeout: const Duration(seconds: 5),
-                receiveTimeout: const Duration(seconds: 5),
-              ),
-            );
+    : _dio =
+          dio ??
+          Dio(
+            BaseOptions(
+              baseUrl: ApiConfig.baseUrl,
+              connectTimeout: const Duration(seconds: 5),
+              receiveTimeout: const Duration(seconds: 5),
+            ),
+          );
 
   @override
-  Future<Map<String, String>> requestUploadUrl({required String contentType}) async {
+  Future<Map<String, String>> requestUploadUrl({
+    required String contentType,
+  }) async {
     // Contract per docs/05-photo-upload-approach.md
     final response = await _dio.post(
       '/api/uploads/photo-url',
@@ -48,10 +53,7 @@ class PhotoUploadRepositoryImpl implements PhotoUploadRepository {
       uploadUrl,
       data: Stream.fromIterable([bytes]),
       options: Options(
-        headers: {
-          'Content-Type': contentType,
-          'Content-Length': bytes.length,
-        },
+        headers: {'Content-Type': contentType, 'Content-Length': bytes.length},
       ),
     );
   }

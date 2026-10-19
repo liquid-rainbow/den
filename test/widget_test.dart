@@ -9,7 +9,9 @@ void main() {
         child: DenApp(),
       ),
     );
+    await tester.pumpAndSettle();
 
-    expect(find.text('/auth/phone'), findsOneWidget);
+    expect(find.text('Login or sign up'), findsOneWidget);
+    expect(find.text('Den'), findsOneWidget);
   });
 }

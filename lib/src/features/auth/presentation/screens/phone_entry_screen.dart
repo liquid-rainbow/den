@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/widgets/den_buttons.dart';
+import '../../../../core/widgets/den_logo.dart';
 import '../../../../core/widgets/mobile_device_shell.dart';
 import '../controllers/auth_controller.dart';
 
@@ -222,21 +223,31 @@ class _PhoneEntryScreenState extends ConsumerState<PhoneEntryScreen> {
             ),
           ),
           child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const SizedBox(height: 20),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  physics: const ClampingScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          const SizedBox(height: 12),
 
                   Column(
                     children: const [
+                      DenLogo(size: 68),
+                      SizedBox(height: 12),
                       Text(
                         'Den',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 48,
+                          fontSize: 44,
                           fontWeight: FontWeight.w900,
                           letterSpacing: -1.5,
                           color: Colors.white,
@@ -256,7 +267,7 @@ class _PhoneEntryScreenState extends ConsumerState<PhoneEntryScreen> {
                     ],
                   ),
 
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 32),
 
                   Container(
                     decoration: BoxDecoration(
@@ -421,9 +432,13 @@ class _PhoneEntryScreenState extends ConsumerState<PhoneEntryScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: 20),
-                ],
-              ),
+                          const SizedBox(height: 12),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ),

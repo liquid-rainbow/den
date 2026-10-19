@@ -7,7 +7,8 @@ import 'package:postgres/postgres.dart';
 void main() async {
   Env.load();
 
-  print('1. Connecting to default database "postgres" to ensure "${Env.dbName}" exists...');
+  print(
+      '1. Connecting to default database "postgres" to ensure "${Env.dbName}" exists...');
   final initConn = await Connection.open(
     Endpoint(
       host: Env.dbHost,
@@ -19,7 +20,8 @@ void main() async {
     settings: const ConnectionSettings(sslMode: SslMode.disable),
   );
 
-  final dbCheck = await initConn.execute("SELECT 1 FROM pg_database WHERE datname = '${Env.dbName}'");
+  final dbCheck = await initConn
+      .execute("SELECT 1 FROM pg_database WHERE datname = '${Env.dbName}'");
   if (dbCheck.isEmpty) {
     print('Creating database "${Env.dbName}"...');
     await initConn.execute('CREATE DATABASE ${Env.dbName}');
@@ -34,32 +36,45 @@ void main() async {
   final pool = Database.pool;
 
   try {
-    final migrationFile = File('migrations/001_initial_schema.sql');
-    if (!migrationFile.existsSync()) {
-      print('ERROR: Migration file not found!');
+    final migrationDirectory = Directory('migrations');
+    if (!migrationDirectory.existsSync()) {
+      print('ERROR: Migrations directory not found!');
       exit(1);
     }
 
-    final rawSql = await migrationFile.readAsString();
-    print('Executing 001_initial_schema.sql...');
-    
-    // Remove SQL line comments
-    final lines = rawSql.split('\n');
-    final cleanedLines = lines.where((l) => !l.trimLeft().startsWith('--')).join('\n');
-
-    final statements = cleanedLines
-        .split(';')
-        .map((s) => s.trim())
-        .where((s) => s.isNotEmpty)
-        .toList();
-
-    for (final statement in statements) {
-      if (statement.isNotEmpty) {
-        await pool.execute(statement);
-      }
+    final migrationFiles = migrationDirectory
+        .listSync()
+        .whereType<File>()
+        .where((file) => file.path.endsWith('.sql'))
+        .toList()
+      ..sort((left, right) => left.path.compareTo(right.path));
+    if (migrationFiles.isEmpty) {
+      print('ERROR: No SQL migration files found!');
+      exit(1);
     }
 
-    print('Migrations executed successfully!\n');
+    for (final migrationFile in migrationFiles) {
+      final migrationName = migrationFile.uri.pathSegments.last;
+      final rawSql = await migrationFile.readAsString();
+      final cleanedSql = rawSql
+          .split('\n')
+          .where((line) => !line.trimLeft().startsWith('--'))
+          .join('\n');
+      final statements = cleanedSql
+          .split(';')
+          .map((statement) => statement.trim())
+          .where((statement) => statement.isNotEmpty)
+          .toList();
+
+      print('Executing $migrationName...');
+      await pool.runTx((transaction) async {
+        for (final statement in statements) {
+          await transaction.execute(statement);
+        }
+      });
+    }
+
+    print('All migrations executed successfully!\n');
 
     print('================ TABLE VERIFICATION OUTPUT ================');
     final tablesResult = await pool.execute(

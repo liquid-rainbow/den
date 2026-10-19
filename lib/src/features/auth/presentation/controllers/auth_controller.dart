@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../data/auth_api_repository.dart';
 
 class AuthFlowState {
   final String countryCode;
@@ -8,6 +11,7 @@ class AuthFlowState {
   final String otpCode;
   final bool isSubmitting;
   final int timerSeconds;
+  final String? sessionToken;
   final String? error;
 
   const AuthFlowState({
@@ -17,10 +21,12 @@ class AuthFlowState {
     this.otpCode = '',
     this.isSubmitting = false,
     this.timerSeconds = 30,
+    this.sessionToken,
     this.error,
   });
 
-  String get fullPhoneNumber => '$countryCode${phone.replaceAll(RegExp(r'\D'), '')}';
+  String get fullPhoneNumber =>
+      '$countryCode${phone.replaceAll(RegExp(r'\D'), '')}';
 
   AuthFlowState copyWith({
     String? countryCode,
@@ -29,6 +35,7 @@ class AuthFlowState {
     String? otpCode,
     bool? isSubmitting,
     int? timerSeconds,
+    String? sessionToken,
     String? error,
   }) {
     return AuthFlowState(
@@ -38,6 +45,7 @@ class AuthFlowState {
       otpCode: otpCode ?? this.otpCode,
       isSubmitting: isSubmitting ?? this.isSubmitting,
       timerSeconds: timerSeconds ?? this.timerSeconds,
+      sessionToken: sessionToken ?? this.sessionToken,
       error: error,
     );
   }
@@ -45,6 +53,7 @@ class AuthFlowState {
 
 class AuthFlowNotifier extends Notifier<AuthFlowState> {
   Timer? _timer;
+  final AuthApiRepository _repo = AuthApiRepository();
 
   @override
   AuthFlowState build() {
@@ -77,7 +86,9 @@ class AuthFlowNotifier extends Notifier<AuthFlowState> {
     final digits = state.phone.replaceAll(RegExp(r'\D'), '');
     if (state.countryCode == '+91') {
       if (digits.length != 10) {
-        state = state.copyWith(error: 'Please enter a valid 10-digit mobile number.');
+        state = state.copyWith(
+          error: 'Please enter a valid 10-digit mobile number.',
+        );
         return false;
       }
     } else {
@@ -88,9 +99,19 @@ class AuthFlowNotifier extends Notifier<AuthFlowState> {
     }
 
     state = state.copyWith(isSubmitting: true, error: null);
-    
-    // Simulate network delay for UI responsiveness
-    await Future.delayed(const Duration(milliseconds: 600));
+
+    try {
+      await _repo.sendOtp(phoneNumber: state.fullPhoneNumber);
+    } catch (e) {
+      state = state.copyWith(
+        isSubmitting: false,
+        error: _apiErrorMessage(
+          e,
+          fallback: 'Failed to send OTP. Please try again.',
+        ),
+      );
+      return false;
+    }
 
     state = state.copyWith(
       isSubmitting: false,
@@ -102,25 +123,51 @@ class AuthFlowNotifier extends Notifier<AuthFlowState> {
     return true;
   }
 
-  Future<bool> verifyOtp() async {
+  Future<AuthSessionResult?> verifyOtp() async {
     if (state.otpCode.length != 6) {
       state = state.copyWith(error: 'Please enter the full 6-digit code.');
-      return false;
+      return null;
     }
 
     state = state.copyWith(isSubmitting: true, error: null);
 
-    // Simulate network verification delay
-    await Future.delayed(const Duration(milliseconds: 600));
+    try {
+      final result = await _repo.verifyOtp(
+        phoneNumber: state.fullPhoneNumber,
+        code: state.otpCode,
+      );
 
-    state = state.copyWith(isSubmitting: false);
-    return true;
+      state = state.copyWith(
+        isSubmitting: false,
+        sessionToken: result.sessionToken,
+      );
+      return result;
+    } catch (e) {
+      state = state.copyWith(
+        isSubmitting: false,
+        error: _apiErrorMessage(
+          e,
+          fallback: 'Invalid or expired verification code.',
+        ),
+      );
+      return null;
+    }
   }
 
-  void resendOtp() {
+  Future<void> resendOtp() async {
     if (state.timerSeconds > 0) return;
-    state = state.copyWith(timerSeconds: 30, error: null);
-    _startTimer();
+    await sendOtp();
+  }
+
+  String _apiErrorMessage(Object error, {required String fallback}) {
+    if (error is DioException) {
+      final data = error.response?.data;
+      if (data is Map && data['message'] is String) {
+        final message = (data['message'] as String).trim();
+        if (message.isNotEmpty) return message;
+      }
+    }
+    return fallback;
   }
 
   void _startTimer() {
@@ -136,4 +183,6 @@ class AuthFlowNotifier extends Notifier<AuthFlowState> {
   }
 }
 
-final authFlowProvider = NotifierProvider<AuthFlowNotifier, AuthFlowState>(AuthFlowNotifier.new);
+final authFlowProvider = NotifierProvider<AuthFlowNotifier, AuthFlowState>(
+  AuthFlowNotifier.new,
+);

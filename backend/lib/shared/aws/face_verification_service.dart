@@ -65,7 +65,8 @@ class StubFaceVerificationService implements FaceVerificationService {
       passed: false,
       confidenceScore: 0.0,
       similarityScore: 0.0,
-      message: 'Not implemented — awaiting real AWS Rekognition backend integration',
+      message:
+          'Face verification is not available in local development yet. You can skip for now.',
     );
   }
 }
