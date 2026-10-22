@@ -1,0 +1,33 @@
+# Dart build and package metadata generated on the host
+.dart_tool
+.packages
+.pub-cache
+build
+coverage
+
+# Local environment files and secrets
+.env
+.env.*
+*.pem
+**/*.pem
+*.key
+**/*.key
+*.p12
+**/*.p12
+*.csv
+**/*.csv
+**/*accessKeys*
+**/*credentials*
+
+# Source control and editor metadata
+.git
+.gitignore
+.idea
+.vscode
+
+# Files that are not needed in the runtime image
+test
+docker-compose.yml
+docker-compose.yaml
+README.md
+*.log

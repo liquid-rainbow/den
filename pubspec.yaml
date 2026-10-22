@@ -104,3 +104,8 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+# Local native dependency workaround; see third_party/face_liveness_detector/DEN_PATCH.md.
+dependency_overrides:
+  face_liveness_detector:
+    path: third_party/face_liveness_detector

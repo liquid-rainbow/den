@@ -24,7 +24,9 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
     super.initState();
     _otpController = TextEditingController(text: ref.read(authFlowProvider).otpCode);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       _hiddenFocusNode.requestFocus();
+      ref.read(authFlowProvider.notifier).ensureResendTimerRunning();
     });
   }
 
@@ -224,11 +226,11 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
                         style: const TextStyle(color: Colors.white70, fontSize: 14),
                       ),
                       TextButton(
-                        onPressed: state.timerSeconds == 0 ? notifier.resendOtp : null,
+                        onPressed: state.timerSeconds == 0 && !state.isSubmitting ? notifier.resendOtp : null,
                         child: Text(
-                          'Resend OTP',
+                          state.isSubmitting && state.timerSeconds == 0 ? 'Sending...' : 'Resend OTP',
                           style: TextStyle(
-                            color: state.timerSeconds == 0 ? Colors.white : Colors.white38,
+                            color: state.timerSeconds == 0 && !state.isSubmitting ? Colors.white : Colors.white38,
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                             decoration: TextDecoration.underline,

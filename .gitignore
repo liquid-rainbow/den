@@ -4,6 +4,8 @@
 .pub-cache/
 .pub/
 build/
+# Also ignore a root build symlink to local output outside iCloud.
+/build
 coverage/
 .flutter-plugins
 .flutter-plugins-dependencies

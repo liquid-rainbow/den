@@ -1,6 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:den_backend/modules/chat/chat_controller.dart';
+import 'package:den_backend/modules/chat/chat_service.dart';
+
 import 'package:den_backend/config/database.dart';
 import 'package:den_backend/config/env.dart';
 import 'package:den_backend/middleware/cors_middleware.dart';
@@ -70,6 +73,8 @@ void main() async {
   // Mount Auth Router
   app.mount('/api/auth', authController.router.call);
   app.mount('/api/users', userController.router.call);
+  app.mount('/api/chat',
+      ChatController(service: ChatService(), users: userService).router.call);
   app.mount('/api/onboarding', faceVerificationController.router.call);
 
   final handler = const Pipeline()

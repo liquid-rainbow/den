@@ -14,6 +14,9 @@ class Env {
       _dbUser = dotenv['DB_USER'] ?? _dbUser;
       _dbPassword = dotenv['DB_PASSWORD'] ?? _dbPassword;
       _dbPoolSize = int.tryParse(dotenv['DB_POOL_SIZE'] ?? '') ?? _dbPoolSize;
+      _dbSslMode = dotenv['DB_SSL_MODE'] ?? _dbSslMode;
+      _dbSslRootCertificate =
+          dotenv['DB_SSL_ROOT_CERT'] ?? _dbSslRootCertificate;
       if (dotenv['ALLOWED_ORIGINS'] != null) {
         _allowedOrigins = _parseOrigins(dotenv['ALLOWED_ORIGINS']!);
       }
@@ -22,11 +25,16 @@ class Env {
     if (_dbPoolSize <= 0) {
       throw StateError('DB_POOL_SIZE must be a positive integer.');
     }
+    if (!{'disable', 'verify-full'}.contains(_dbSslMode.toLowerCase())) {
+      throw StateError(
+        'DB_SSL_MODE must be either "disable" or "verify-full".',
+      );
+    }
   }
 
   static String _environment =
       Platform.environment['ENVIRONMENT'] ?? 'development';
-  static int _port = int.tryParse(Platform.environment['PORT'] ?? '') ?? 5000;
+  static int _port = int.tryParse(Platform.environment['PORT'] ?? '') ?? 5001;
 
   static String _dbHost = Platform.environment['DB_HOST'] ?? 'localhost';
   static int _dbPort =
@@ -36,6 +44,11 @@ class Env {
   static String _dbPassword = Platform.environment['DB_PASSWORD'] ?? 'postgres';
   static int _dbPoolSize =
       int.tryParse(Platform.environment['DB_POOL_SIZE'] ?? '') ?? 10;
+  static String _dbSslMode =
+      Platform.environment['DB_SSL_MODE'] ?? 'verify-full';
+  static String _dbSslRootCertificate =
+      Platform.environment['DB_SSL_ROOT_CERT'] ??
+          '/app/certs/ap-south-1-bundle.pem';
   static Set<String> _allowedOrigins = _parseOrigins(
     Platform.environment['ALLOWED_ORIGINS'] ?? 'http://127.0.0.1:8081',
   );
@@ -58,5 +71,7 @@ class Env {
   static String get dbUser => _dbUser;
   static String get dbPassword => _dbPassword;
   static int get dbPoolSize => _dbPoolSize;
+  static String get dbSslMode => _dbSslMode.toLowerCase();
+  static String get dbSslRootCertificate => _dbSslRootCertificate;
   static Set<String> get allowedOrigins => Set.unmodifiable(_allowedOrigins);
 }

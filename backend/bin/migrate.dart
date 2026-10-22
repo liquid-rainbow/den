@@ -6,6 +6,10 @@ import 'package:postgres/postgres.dart';
 
 void main() async {
   Env.load();
+  if (!RegExp(r'^[a-zA-Z_][a-zA-Z0-9_]{0,62}$').hasMatch(Env.dbName)) {
+    throw StateError(
+        'DB_NAME must be a simple PostgreSQL identifier (maximum 63 characters).');
+  }
 
   print(
       '1. Connecting to default database "postgres" to ensure "${Env.dbName}" exists...');
@@ -17,14 +21,19 @@ void main() async {
       username: Env.dbUser,
       password: Env.dbPassword,
     ),
-    settings: const ConnectionSettings(sslMode: SslMode.disable),
+    settings: ConnectionSettings(
+      sslMode: Database.sslMode,
+      securityContext: Database.createSecurityContext(),
+    ),
   );
 
-  final dbCheck = await initConn
-      .execute("SELECT 1 FROM pg_database WHERE datname = '${Env.dbName}'");
+  final dbCheck = await initConn.execute(
+    r'SELECT 1 FROM pg_database WHERE datname = $1',
+    parameters: [Env.dbName],
+  );
   if (dbCheck.isEmpty) {
     print('Creating database "${Env.dbName}"...');
-    await initConn.execute('CREATE DATABASE ${Env.dbName}');
+    await initConn.execute('CREATE DATABASE "${Env.dbName}"');
     print('Database "${Env.dbName}" created successfully!');
   } else {
     print('Database "${Env.dbName}" already exists.');

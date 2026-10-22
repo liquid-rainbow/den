@@ -1,12 +1,35 @@
+import 'dart:io';
+
 import 'package:den_backend/config/env.dart';
 import 'package:postgres/postgres.dart';
 
 class Database {
   static Pool? _pool;
 
+  static SslMode get sslMode => switch (Env.dbSslMode) {
+        'disable' => SslMode.disable,
+        'verify-full' => SslMode.verifyFull,
+        _ => throw StateError('Unsupported DB_SSL_MODE: ${Env.dbSslMode}'),
+      };
+
+  static SecurityContext? createSecurityContext() {
+    if (sslMode == SslMode.disable) return null;
+
+    final certificate = File(Env.dbSslRootCertificate);
+    if (!certificate.existsSync()) {
+      throw StateError(
+        'Database CA certificate not found: ${Env.dbSslRootCertificate}',
+      );
+    }
+
+    return SecurityContext(withTrustedRoots: false)
+      ..setTrustedCertificates(certificate.path);
+  }
+
   static Pool get pool {
     if (_pool == null) {
-      throw StateError('Database pool has not been initialized. Call Database.initialize() first.');
+      throw StateError(
+          'Database pool has not been initialized. Call Database.initialize() first.');
     }
     return _pool!;
   }
@@ -26,7 +49,8 @@ class Database {
       [endpoint],
       settings: PoolSettings(
         maxConnectionCount: Env.dbPoolSize,
-        sslMode: SslMode.disable,
+        sslMode: sslMode,
+        securityContext: createSecurityContext(),
       ),
     );
   }

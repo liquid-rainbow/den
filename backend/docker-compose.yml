@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -10,7 +8,7 @@ services:
       POSTGRES_USER: den_user
       POSTGRES_PASSWORD: den_password
     ports:
-      - "5434:5432"
+      - "127.0.0.1:5434:5432"
     volumes:
       - den_pgdata:/var/lib/postgresql/data
 

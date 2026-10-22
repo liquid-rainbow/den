@@ -53,6 +53,7 @@ class AuthFlowState {
 
 class AuthFlowNotifier extends Notifier<AuthFlowState> {
   Timer? _timer;
+  DateTime? _resendAvailableAt;
   final AuthApiRepository _repo = AuthApiRepository();
 
   @override
@@ -79,7 +80,13 @@ class AuthFlowNotifier extends Notifier<AuthFlowState> {
 
   void resetOtp() {
     _timer?.cancel();
-    state = state.copyWith(otpSent: false, otpCode: '', error: null);
+    _resendAvailableAt = null;
+    state = state.copyWith(
+      otpSent: false,
+      otpCode: '',
+      timerSeconds: 30,
+      error: null,
+    );
   }
 
   Future<bool> sendOtp() async {
@@ -154,8 +161,17 @@ class AuthFlowNotifier extends Notifier<AuthFlowState> {
     }
   }
 
+  /// Restores the ticker if this notifier survives while its timer does not,
+  /// such as during a development hot restart or route lifecycle change.
+  void ensureResendTimerRunning() {
+    if (!state.otpSent || state.timerSeconds <= 0 || _timer?.isActive == true) {
+      return;
+    }
+    _startTimer(seconds: state.timerSeconds);
+  }
+
   Future<void> resendOtp() async {
-    if (state.timerSeconds > 0) return;
+    if (state.timerSeconds > 0 || state.isSubmitting) return;
     await sendOtp();
   }
 
@@ -170,16 +186,30 @@ class AuthFlowNotifier extends Notifier<AuthFlowState> {
     return fallback;
   }
 
-  void _startTimer() {
+  void _startTimer({int seconds = 30}) {
     _timer?.cancel();
+    _resendAvailableAt = DateTime.now().add(Duration(seconds: seconds));
+    _updateTimerFromDeadline();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (state.timerSeconds > 1) {
-        state = state.copyWith(timerSeconds: state.timerSeconds - 1);
-      } else {
-        state = state.copyWith(timerSeconds: 0);
+      _updateTimerFromDeadline();
+      if (state.timerSeconds == 0) {
         timer.cancel();
       }
     });
+  }
+
+  void _updateTimerFromDeadline() {
+    final deadline = _resendAvailableAt;
+    if (deadline == null) return;
+
+    final milliseconds = deadline.difference(DateTime.now()).inMilliseconds;
+    final remainingSeconds = milliseconds <= 0
+        ? 0
+        : (milliseconds / Duration.millisecondsPerSecond).ceil();
+
+    if (remainingSeconds != state.timerSeconds) {
+      state = state.copyWith(timerSeconds: remainingSeconds);
+    }
   }
 }
 
